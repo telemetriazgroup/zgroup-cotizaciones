@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const { initDb } = require('./db');
 const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
+const catalogRoutes = require('./routes/catalog');
 const projects = require('./routes/projects');
 const items = require('./routes/items');
 const plans = require('./routes/plans');
@@ -34,6 +35,7 @@ app.use('/api/auth', authRoutes);
 
 // ── Protected ───────────────────────────────────────────────────────
 app.use('/api/users', requireAuth, requireAdmin, usersRoutes);
+app.use('/api/catalog', catalogRoutes);
 app.use('/api/projects', requireAuth, projects);
 app.use('/api/projects', requireAuth, items);
 app.use('/api/projects', requireAuth, plans);

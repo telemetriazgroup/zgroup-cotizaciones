@@ -23,6 +23,24 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user   ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash    ON refresh_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at);
 
+-- Módulo 1 — Catálogo maestro (55 ítems por defecto vía seed)
+CREATE TABLE IF NOT EXISTS catalog_items (
+  id          VARCHAR(50) PRIMARY KEY,
+  code        VARCHAR(50) NOT NULL,
+  name        VARCHAR(500) NOT NULL,
+  cat         VARCHAR(100) NOT NULL,
+  tipo        VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
+  unit        VARCHAR(20) NOT NULL DEFAULT 'und',
+  price       NUMERIC NOT NULL DEFAULT 0,
+  detalle     TEXT DEFAULT '',
+  sort_order  INTEGER DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_catalog_cat ON catalog_items(cat);
+CREATE INDEX IF NOT EXISTS idx_catalog_code ON catalog_items(code);
+
 CREATE TABLE IF NOT EXISTS projects (
   id            VARCHAR(32)  PRIMARY KEY,
   name          VARCHAR(255) NOT NULL,

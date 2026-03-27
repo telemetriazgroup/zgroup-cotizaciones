@@ -147,4 +147,12 @@ const API = {
   createUser: (data) => apiFetch('/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUser: (id, data) => apiFetch(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteUser: (id) => apiFetch(`/users/${id}`, { method: 'DELETE' }),
+
+  listCatalog: () => apiFetch('/catalog'),
+  getCatalogItem: (id) => apiFetch(`/catalog/${encodeURIComponent(id)}`),
+  createCatalogItem: (data) => apiFetch('/catalog', { method: 'POST', body: JSON.stringify(data) }),
+  updateCatalogItem: (id, data) =>
+    apiFetch(`/catalog/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCatalogItem: (id) =>
+    apiFetch(`/catalog/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };

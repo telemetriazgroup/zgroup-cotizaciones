@@ -5,7 +5,7 @@ const state = {
   projects:  [],
   currentId: null,
   catFilter: 'Todos',
-  appView:   'quote', // 'quote' | 'users'
+  appView:   'quote', // 'quote' | 'users' | 'catalog'
 };
 
 function isViewer() {
@@ -43,6 +43,10 @@ function renderCatalog() {
   });
   document.getElementById('cat-count').textContent = items.length + ' items';
   list.innerHTML = '';
+  if (!items.length) {
+    list.innerHTML = `<div class="mono" style="padding:16px;text-align:center;color:var(--muted);font-size:11px;line-height:1.5">Sin resultados</div>`;
+    return;
+  }
   items.forEach(item => {
     const d   = document.createElement('div');
     d.className = 'ci fade-in';
@@ -223,8 +227,14 @@ async function addItem(catItem) {
   const p = curP();
   if (!p) { toast('⚠ Selecciona un proyecto', 'red'); return; }
   const qty   = parseFloat(document.getElementById('add-qty').value) || 1;
-  const cp    = parseFloat(document.getElementById('add-price').value) || 0;
-  const price = cp > 0 ? cp : catItem.price;
+  const rawPu = document.getElementById('add-price').value.trim();
+  let price;
+  if (rawPu === '') {
+    price = catItem.price;
+  } else {
+    const p = parseFloat(rawPu);
+    price = Number.isFinite(p) ? p : catItem.price;
+  }
 
   // Check if already exists with same catalogId + price
   const existing = p.items.find(i => i.catalogId === catItem.id && i.unitPrice === price);
@@ -495,6 +505,10 @@ document.addEventListener('keydown', e => {
     if (document.getElementById('np-name')) confirmNewProject();
     else if (document.getElementById('ci-name')) submitCustomItem();
     else if (document.getElementById('uu-email')) submitUserForm(!document.getElementById('uu-id'));
+    else if (document.getElementById('ca-name')) {
+      const caId = document.getElementById('ca-id');
+      submitCatalogItemForm(caId && !caId.readOnly);
+    }
   }
 });
 
@@ -510,6 +524,10 @@ function afterLogin() {
   const navUsers = document.getElementById('nav-users');
   if (navUsers) {
     navUsers.style.display = state.user.role === 'ADMIN' ? 'flex' : 'none';
+  }
+  const navCatalog = document.getElementById('nav-catalog');
+  if (navCatalog) {
+    navCatalog.style.display = state.user.role === 'ADMIN' ? 'flex' : 'none';
   }
   applyViewerMode();
   applySideNavFromStorage();
@@ -557,8 +575,20 @@ async function initWorkspace() {
   document.getElementById('hdr-date').textContent =
     new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
+  await initCatalog();
   renderCatFilters();
   renderCatalog();
+
+  const catSearch = document.getElementById('cat-search');
+  if (catSearch && !catSearch.dataset.debounceBound) {
+    catSearch.dataset.debounceBound = '1';
+    let catSearchTimer = null;
+    catSearch.addEventListener('input', () => {
+      clearTimeout(catSearchTimer);
+      catSearchTimer = setTimeout(() => renderCatalog(), 200);
+    });
+  }
+
   setAdjType('margin', false);
 
   try {
@@ -583,28 +613,27 @@ async function initWorkspace() {
 function setNavActive(view) {
   const q = document.getElementById('nav-quote');
   const u = document.getElementById('nav-users');
-  if (q) {
-    const on = view === 'quote';
-    q.style.border = on ? '1px solid rgba(0,229,255,.4)' : '1px solid var(--border-dim)';
-    q.style.background = on ? 'rgba(0,229,255,.14)' : 'transparent';
-    q.style.color = on ? 'var(--cyan)' : 'var(--muted)';
-  }
-  if (u) {
-    const on = view === 'users';
-    u.style.border = on ? '1px solid rgba(0,229,255,.4)' : '1px solid var(--border-dim)';
-    u.style.background = on ? 'rgba(0,229,255,.14)' : 'transparent';
-    u.style.color = on ? 'var(--cyan)' : 'var(--muted)';
-  }
+  const c = document.getElementById('nav-catalog');
+  const paint = (btn, on) => {
+    if (!btn) return;
+    btn.style.border = on ? '1px solid rgba(0,229,255,.4)' : '1px solid var(--border-dim)';
+    btn.style.background = on ? 'rgba(0,229,255,.14)' : 'transparent';
+    btn.style.color = on ? 'var(--cyan)' : 'var(--muted)';
+  };
+  paint(q, view === 'quote');
+  paint(u, view === 'users');
+  paint(c, view === 'catalog');
 }
 
-/** @param {'quote'|'users'} view @param {boolean} [silent] */
+/** @param {'quote'|'users'|'catalog'} view @param {boolean} [silent] */
 function navigateApp(view, silent) {
-  if (view === 'users' && state.user?.role !== 'ADMIN') {
+  if ((view === 'users' || view === 'catalog') && state.user?.role !== 'ADMIN') {
     toast('Solo administradores', 'red');
     return;
   }
   state.appView = view;
   const vUsers = document.getElementById('view-admin-users');
+  const vCatalog = document.getElementById('view-admin-catalog');
   const ib = document.getElementById('info-bar');
   const es = document.getElementById('empty-state');
   const ws = document.getElementById('workspace');
@@ -613,10 +642,20 @@ function navigateApp(view, silent) {
     if (es) es.style.display = 'none';
     if (ws) ws.style.display = 'none';
     if (vUsers) vUsers.style.display = 'flex';
+    if (vCatalog) vCatalog.style.display = 'none';
     setNavActive('users');
     if (!silent && typeof loadUsersTable === 'function') loadUsersTable();
+  } else if (view === 'catalog') {
+    if (ib) ib.style.display = 'none';
+    if (es) es.style.display = 'none';
+    if (ws) ws.style.display = 'none';
+    if (vUsers) vUsers.style.display = 'none';
+    if (vCatalog) vCatalog.style.display = 'flex';
+    setNavActive('catalog');
+    if (!silent && typeof loadCatalogTable === 'function') loadCatalogTable();
   } else {
     if (vUsers) vUsers.style.display = 'none';
+    if (vCatalog) vCatalog.style.display = 'none';
     setNavActive('quote');
     render();
   }

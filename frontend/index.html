@@ -100,6 +100,9 @@
     <button type="button" id="nav-users" class="nav-item" data-view="users" style="display:none;width:100%;text-align:left;padding:8px 12px;font-size:12px;align-items:center;gap:8px;border-radius:6px;cursor:pointer;border:1px solid var(--border-dim);background:transparent;color:var(--muted);font-family:'Rajdhani',sans-serif;font-weight:700" onclick="navigateApp('users')">
       <span aria-hidden="true">👤</span><span class="side-nav-label">Usuarios</span>
     </button>
+    <button type="button" id="nav-catalog" class="nav-item" data-view="catalog" style="display:none;width:100%;text-align:left;padding:8px 12px;font-size:12px;align-items:center;gap:8px;border-radius:6px;cursor:pointer;border:1px solid var(--border-dim);background:transparent;color:var(--muted);font-family:'Rajdhani',sans-serif;font-weight:700" onclick="navigateApp('catalog')">
+      <span aria-hidden="true">📦</span><span class="side-nav-label">Catálogo</span>
+    </button>
   </nav>
 </aside>
 <button type="button" id="side-nav-expand" class="bg1 side-nav-expand-fab" onclick="toggleSideNav()" title="Mostrar menú lateral">▶</button>
@@ -143,7 +146,7 @@
   <div style="padding:6px 8px;border-bottom:1px solid var(--border);flex-shrink:0">
     <div style="position:relative">
       <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%)" width="11" height="11" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" id="cat-search" placeholder="Buscar…" oninput="renderCatalog()" class="vi" style="padding-left:26px;font-size:11px;text-align:left">
+      <input type="text" id="cat-search" placeholder="Buscar…" class="vi" style="padding-left:26px;font-size:11px;text-align:left" autocomplete="off">
     </div>
   </div>
   <div id="cat-filters" style="padding:5px 6px;display:flex;gap:3px;overflow-x:auto;flex-shrink:0;border-bottom:1px solid var(--border)"></div>
@@ -626,6 +629,25 @@
   </div>
 </div>
 
+<!-- ═══ ADMIN CATÁLOGO (solo ADMIN) ═══ -->
+<div id="view-admin-catalog" style="display:none;flex:1;overflow:auto;padding:16px 20px;background:var(--bg);min-height:0">
+  <div style="max-width:1100px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div>
+        <span class="shr" style="color:var(--cyan);font-size:14px">CATÁLOGO (BD)</span>
+        <p class="mono" style="font-size:11px;color:var(--muted);margin:4px 0 0">55 ítems por defecto · CRUD solo ADMIN (Módulo 1)</p>
+      </div>
+      <button type="button" class="b1" style="padding:8px 16px;font-size:12px" onclick="openCatalogItemModal(null)">+ NUEVO ÍTEM</button>
+    </div>
+    <div style="border:1px solid var(--border-dim);border-radius:8px;overflow:hidden;background:var(--surface)">
+      <div style="display:grid;grid-template-columns:100px 1fr 140px 90px 80px 1fr;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);letter-spacing:1px" class="mono">
+        <span>ID</span><span>NOMBRE</span><span>CATEGORÍA</span><span>TIPO</span><span style="text-align:right">PRECIO</span><span style="text-align:right">ACCIONES</span>
+      </div>
+      <div id="catalog-table-body"></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- layout-main -->
 </div><!-- layout-body -->
 </div><!-- app-root -->
@@ -649,6 +671,7 @@
 <script src="js/ui.js"></script>
 <script src="js/compute.js"></script>
 <script src="js/usersAdmin.js"></script>
+<script src="js/catalogAdmin.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

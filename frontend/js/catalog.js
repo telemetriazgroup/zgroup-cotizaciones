@@ -1,5 +1,5 @@
-/* ── ZGROUP Product Catalog (55 items) ── */
-const CATALOG = [
+/* ── ZGROUP Product Catalog (55 items) — fallback + caché local (Módulo 1) ── */
+const CATALOG_STATIC = [
   {id:'EST-001',code:'EST-001',name:'ZGROUP STORE XL - IZQUIERDA',cat:'Trab. Estructura',tipo:'ACTIVO',unit:'und',price:5900,detalle:'CAJA ISOTERMICA DE 40 PIES CON LUMINARIAS Y PISO PLANO'},
   {id:'EST-002',code:'EST-002',name:'ZGROUP STORE XL - DERECHA',cat:'Trab. Estructura',tipo:'ACTIVO',unit:'und',price:5900,detalle:'CAJA ISOTERMICA DE 40 PIES CON LUMINARIAS Y PISO PLANO'},
   {id:'EST-003',code:'EST-003',name:'ZGROUP STORE XL - MEDIA',cat:'Trab. Estructura',tipo:'ACTIVO',unit:'und',price:6900,detalle:'CAJA ISOTERMICA DE 40 PIES CON LUMINARIAS Y PISO PLANO'},
@@ -56,5 +56,58 @@ const CATALOG = [
   {id:'PTA-007',code:'PTA-007',name:'PUERTA SECCIONAL 2300MM X 2500MM',cat:'Puertas',tipo:'ACTIVO',unit:'und',price:2600,detalle:'ESPESOR PANEL 40MM'},
   {id:'PTA-008',code:'PTA-008',name:'HIGH SPEED ROLL UP DOOR 2300MM X 2500MM',cat:'Puertas',tipo:'ACTIVO',unit:'und',price:3900,detalle:'DE MANTA ELECT'},
 ];
+
+/** Catálogo activo (BD, caché o estático) */
+let CATALOG = CATALOG_STATIC.slice();
+
+const CATALOG_CACHE_KEY = 'zgroup_catalog_cache';
+
+function normalizeCatalogRow(row) {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    cat: row.cat,
+    tipo: row.tipo,
+    unit: row.unit,
+    price: typeof row.price === 'number' ? row.price : parseFloat(row.price) || 0,
+    detalle: row.detalle || '',
+    sortOrder: row.sortOrder != null ? row.sortOrder : 9999,
+  };
+}
+
+/**
+ * Carga catálogo desde API; si falla, localStorage; si no hay caché, CATALOG_STATIC.
+ * Debe llamarse tras login (token disponible).
+ */
+async function initCatalog() {
+  try {
+    const rows = await API.listCatalog();
+    if (Array.isArray(rows)) {
+      CATALOG = rows.length ? rows.map(normalizeCatalogRow) : [];
+      if (rows.length) {
+        try {
+          localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(CATALOG));
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    }
+  } catch (_) {
+    try {
+      const raw = localStorage.getItem(CATALOG_CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          CATALOG = parsed.map(normalizeCatalogRow);
+          return;
+        }
+      }
+    } catch (_) {
+      /* ignore */
+    }
+    CATALOG = CATALOG_STATIC.slice();
+  }
+}
 
 const CATEGORIES = ['Todos','Trab. Estructura','Sistema de Frio','Accesorios','Puertas'];

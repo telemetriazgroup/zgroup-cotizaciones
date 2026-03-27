@@ -50,12 +50,28 @@ async function ensurePredefinedSuperuser() {
   console.log('✔  Superusuario predefinido: usuario zgroup · email zgroup@zgroup.local (cambiar contraseña en producción)');
 }
 
+async function seedCatalog() {
+  const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM catalog_items');
+  if (rows[0].n > 0) return;
+  const { catalogSeed } = require('./seedCatalog');
+  let order = 0;
+  for (const it of catalogSeed) {
+    await pool.query(
+      `INSERT INTO catalog_items (id, code, name, cat, tipo, unit, price, detalle, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [it.id, it.code, it.name, it.cat, it.tipo, it.unit, it.price, it.detalle || '', order++]
+    );
+  }
+  console.log(`✔  Catálogo sembrado: ${catalogSeed.length} ítems (Módulo 1)`);
+}
+
 async function initDb() {
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await pool.query(schema);
   console.log('✔  Database schema initialized');
   await seedAdmin();
   await ensurePredefinedSuperuser();
+  await seedCatalog();
 }
 
 module.exports = { pool, initDb };
