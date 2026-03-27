@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ZGROUP — Cotizaciones Técnicas v7.0</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+
+<!-- Loading bar -->
+<div id="loading-bar"></div>
+
+<!-- ═══ HEADER ═══ -->
+<header style="background:var(--surface);border-bottom:1px solid rgba(0,212,255,.18);position:sticky;top:0;z-index:40">
+<div style="padding:9px 16px;display:flex;align-items:center;gap:12px">
+  <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+    <div style="position:relative">
+      <div style="width:36px;height:36px;border:1px solid rgba(0,212,255,.4);border-radius:7px;background:rgba(0,212,255,.07);display:flex;align-items:center;justify-content:center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.8"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="8.5" x2="22" y2="8.5"/><line x1="2" y1="15.5" x2="22" y2="15.5"/></svg>
+      </div>
+      <div class="pulse-dot" style="position:absolute;top:-1px;right:-1px;width:7px;height:7px;border-radius:50%;background:var(--cyan)"></div>
+    </div>
+    <div>
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:18px;letter-spacing:4px;color:var(--cyan);line-height:1">ZGROUP</div>
+      <div class="mono" style="font-size:8px;letter-spacing:2px;color:var(--muted);line-height:1;margin-top:2px">COT.TÉCNICAS v7.0</div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:8px;flex:1;max-width:500px">
+    <span class="mono" style="font-size:10px;color:var(--muted);flex-shrink:0">PRY:</span>
+    <select id="project-select" class="vi" style="flex:1;text-align:left;padding-right:28px;cursor:pointer" onchange="selectProject(this.value)">
+      <option value="">— Seleccionar Proyecto —</option>
+    </select>
+    <button class="b1" style="padding:5px 12px;font-size:12px;flex-shrink:0" onclick="openNewProjectModal()">+ NUEVO</button>
+    <button class="bred" style="padding:5px 8px;flex-shrink:0" onclick="deleteCurrentProject()" title="Eliminar">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+    </button>
+  </div>
+
+  <div style="flex:1"></div>
+
+  <div style="display:flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid var(--border);border-radius:7px;background:rgba(15,22,36,.8)">
+    <button id="btn-usd" onclick="setCurrency('USD')" style="padding:2px 7px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;border:1px solid rgba(0,212,255,.4);background:rgba(0,212,255,.14);color:var(--cyan);transition:all .15s">USD $</button>
+    <span style="color:var(--border);font-size:13px">|</span>
+    <button id="btn-pen" onclick="setCurrency('PEN')" style="padding:2px 7px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--muted);transition:all .15s">PEN S/</button>
+    <div id="tc-row" style="display:none;align-items:center;gap:4px;border-left:1px solid var(--border);padding-left:6px;margin-left:2px">
+      <span class="mono" style="font-size:10px;color:var(--muted)">T.C.</span>
+      <input type="number" id="tc-input" value="3.75" min="1" step="0.01" oninput="setExchangeRate(this.value)" style="width:52px;padding:2px 4px;background:var(--card);border:1px solid var(--border);color:var(--cyan);border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;text-align:right">
+    </div>
+  </div>
+
+  <span class="mono" style="font-size:11px;color:var(--muted)" id="hdr-date"></span>
+
+  <button class="bgreen" style="padding:6px 16px;font-size:13px;display:flex;align-items:center;gap:6px" onclick="openExportModal()">
+    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    EXPORTAR
+  </button>
+</div>
+</header>
+
+<!-- ═══ INFO BAR ═══ -->
+<div id="info-bar" style="display:none;background:rgba(0,212,255,.03);border-bottom:1px solid var(--border);padding:4px 16px;gap:16px;align-items:center;font-size:11px">
+  <div class="mono" style="gap:6px;display:flex;align-items:center"><span style="color:var(--muted)">PROYECTO:</span><span id="ib-name" style="font-weight:600"></span></div>
+  <div style="width:1px;height:12px;background:var(--border)"></div>
+  <div class="mono" style="gap:6px;display:flex;align-items:center"><span style="color:var(--muted)">ODOO:</span><span id="ib-odoo" style="color:var(--cyan)"></span></div>
+  <div style="width:1px;height:12px;background:var(--border)"></div>
+  <div class="mono" style="gap:6px;display:flex;align-items:center"><span style="color:var(--muted)">BASE:</span><span id="ib-total" style="color:var(--green);font-weight:600">$ 0.00</span></div>
+  <div style="width:1px;height:12px;background:var(--border)"></div>
+  <div class="mono" style="gap:6px;display:flex;align-items:center"><span style="color:var(--amber)">CP:</span><span id="ib-cp" style="color:var(--amber)">$ 0.00</span></div>
+  <div style="width:1px;height:12px;background:var(--border)"></div>
+  <div class="mono" style="gap:6px;display:flex;align-items:center"><span style="color:var(--green)">LP:</span><span id="ib-lp" style="color:var(--green)">$ 0.00</span></div>
+</div>
+
+<!-- ═══ EMPTY STATE ═══ -->
+<div id="empty-state" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh - 96px)">
+  <div style="text-align:center">
+    <div style="width:88px;height:88px;margin:0 auto 20px;border:1px solid rgba(0,212,255,.2);border-radius:14px;background:rgba(0,212,255,.04);display:flex;align-items:center;justify-content:center">
+      <svg width="42" height="42" fill="none" stroke="rgba(0,212,255,.4)" stroke-width="1.2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+    </div>
+    <div style="font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:600;letter-spacing:3px;color:var(--muted)">SIN PROYECTO ACTIVO</div>
+    <p style="font-size:13px;color:#3A5070;margin:8px 0 20px">Crea un nuevo proyecto para comenzar</p>
+    <button class="b1" style="padding:10px 28px;font-size:14px" onclick="openNewProjectModal()">+ CREAR PROYECTO</button>
+  </div>
+</div>
+
+<!-- ═══ WORKSPACE ═══ -->
+<div id="workspace" style="display:none;height:calc(100vh - 96px)">
+<div style="display:flex;height:100%">
+
+<!-- ═══ LEFT: CATALOG ═══ -->
+<div style="width:270px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface);overflow:hidden">
+  <div style="padding:7px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);flex-shrink:0">
+    <span class="shr" style="color:var(--cyan)">CATÁLOGO</span>
+    <span class="mono" style="font-size:10px;color:var(--muted)" id="cat-count">0</span>
+  </div>
+  <div style="padding:6px 8px;border-bottom:1px solid var(--border);flex-shrink:0">
+    <div style="position:relative">
+      <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%)" width="11" height="11" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="cat-search" placeholder="Buscar…" oninput="renderCatalog()" class="vi" style="padding-left:26px;font-size:11px;text-align:left">
+    </div>
+  </div>
+  <div id="cat-filters" style="padding:5px 6px;display:flex;gap:3px;overflow-x:auto;flex-shrink:0;border-bottom:1px solid var(--border)"></div>
+  <div id="cat-list" style="flex:1;overflow-y:auto;padding:5px;display:flex;flex-direction:column;gap:3px"></div>
+  <div style="padding:7px;border-top:1px solid var(--border);background:rgba(22,32,48,.6);flex-shrink:0">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px">
+      <div><label class="lm">CANTIDAD</label><input type="number" id="add-qty" value="1" min="0.01" step="0.01" class="vi" style="text-align:center;font-size:11px"></div>
+      <div><label class="lm">P.UNIT CUSTOM</label><input type="number" id="add-price" placeholder="auto" min="0" step="0.01" class="vi" style="font-size:11px"></div>
+    </div>
+    <button class="bg1" style="width:100%;padding:4px;font-size:11px" onclick="openCustomItemModal()">+ PIEZA PERSONALIZADA</button>
+  </div>
+  <div style="border-top:2px solid var(--border);flex-shrink:0">
+    <div style="padding:6px 12px;display:flex;justify-content:space-between;align-items:center">
+      <span class="shr" style="color:var(--amber)">PLANOS TÉCNICOS</span>
+      <span class="mono" style="font-size:10px;color:var(--muted)" id="plans-badge">0</span>
+    </div>
+    <div class="dz" id="drop-zone" style="margin:0 8px 6px;border:1px dashed #2A3850;border-radius:8px;padding:10px 8px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s"
+      onclick="document.getElementById('file-input').click()"
+      ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+      <input type="file" id="file-input" multiple accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" style="display:none" onchange="handleFiles(event)">
+      <svg style="margin:0 auto 3px;display:block" width="18" height="18" fill="none" stroke="#2A3850" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <p style="font-size:10px;color:#3A5070;line-height:1.4;margin:0">Clic o arrastra planos<br><span style="color:#2A3850;font-size:9px">PDF·DWG·DXF·IMG</span></p>
+    </div>
+    <div id="plans-list" style="padding:0 8px 8px;display:flex;flex-direction:column;gap:3px;max-height:100px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- ═══ CENTER: ITEMS ═══ -->
+<div style="flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);min-width:0">
+  <div style="padding:7px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">
+    <span class="shr" style="color:var(--text);letter-spacing:2px">PRESUPUESTO DETALLADO</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="bg1" style="padding:3px 10px;font-size:11px" onclick="clearAllItems()">LIMPIAR</button>
+      <span class="mono" style="font-size:11px;color:var(--muted)"><span id="items-count">0</span> partidas</span>
+    </div>
+  </div>
+  <div class="mono" style="display:grid;grid-template-columns:55px 1.6fr 48px 110px 70px 110px 28px;gap:5px;padding:5px 14px;border-bottom:1px solid var(--border-dim);font-size:10px;color:var(--muted);letter-spacing:1.5px;background:var(--surface);flex-shrink:0">
+    <span>CÓD.</span><span>DESCRIPCIÓN</span><span style="text-align:center">UND</span>
+    <span style="text-align:right">P.UNIT.</span><span style="text-align:center">CANT.</span>
+    <span style="text-align:right">SUBTOTAL</span><span></span>
+  </div>
+  <div id="items-list" style="flex:1;overflow-y:auto"></div>
+  <div style="padding:7px 14px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+      <div style="display:flex;gap:14px">
+        <span class="mono" style="font-size:10px"><span style="color:var(--cyan)">ACTIVOS:</span> <span id="footer-activos">$ 0.00</span></span>
+        <span class="mono" style="font-size:10px"><span style="color:var(--amber)">CONSUMIBLES:</span> <span id="footer-consumibles">$ 0.00</span></span>
+      </div>
+      <span class="mono" id="footer-qty" style="font-size:10px;color:var(--muted)"></span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-family:'Rajdhani',sans-serif;font-weight:600;font-size:13px;letter-spacing:1.5px;color:var(--text)">TOTAL LISTA</span>
+      <span class="mono" id="footer-total" style="font-size:15px;font-weight:700;color:var(--green)">$ 0.00</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ RIGHT: FINANCIALS ═══ -->
+<div style="width:400px;flex-shrink:0;border-left:2px solid var(--border-dim);background:var(--surface);overflow-y:auto;display:flex;flex-direction:column">
+
+  <!-- M1: VENTA DIRECTA -->
+  <div style="border-bottom:1px solid var(--border)">
+    <div class="mod-hdr" onclick="toggleMod('mod-venta')">
+      <div class="mod-badge" style="border:1px solid rgba(0,212,255,.35);background:rgba(0,212,255,.12)"><span style="color:var(--cyan)">1</span></div>
+      <span class="shr" style="color:var(--cyan)">VENTA DIRECTA</span>
+      <span class="mono" style="font-size:10px;color:var(--muted);margin-left:auto" id="v-total-hdr">$ 0.00</span>
+      <svg id="arrow-mod-venta" width="12" height="12" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24" style="margin-left:6px;transition:transform .3s"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div id="mod-venta" class="mod-body" style="max-height:300px;opacity:1">
+    <div style="padding:10px 12px">
+      <div style="margin-bottom:8px">
+        <label class="lm">TIPO DE AJUSTE</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+          <button id="btn-margin" class="bg1" style="padding:4px;font-size:11px;letter-spacing:1px" onclick="setAdjType('margin')">▲ MARGEN SEG.</button>
+          <button id="btn-discount" class="bg1" style="padding:4px;font-size:11px;letter-spacing:1px" onclick="setAdjType('discount')">▼ DESC. COMERCIAL</button>
+        </div>
+      </div>
+      <div style="margin-bottom:8px">
+        <label class="lm" id="adj-label">MARGEN (%)</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="number" id="adj-pct" value="10" min="0" max="100" step="0.5" oninput="saveAndCompute()" class="vi" style="max-width:90px">
+          <span style="color:var(--muted);font-size:13px">%</span>
+        </div>
+      </div>
+      <div style="border:1px solid rgba(0,212,255,.2);border-radius:7px;padding:9px;background:rgba(0,212,255,.02)">
+        <div class="rr"><span style="color:var(--muted)">Base lista:</span><span id="v-base">$ 0.00</span></div>
+        <div class="rr" style="margin-bottom:7px"><span id="v-adj-label" style="color:var(--muted)">+ Seguridad:</span><span id="v-adj-val" style="color:var(--amber)">+ $ 0.00</span></div>
+        <div style="border-top:1px solid rgba(0,212,255,.2);padding-top:6px;display:flex;justify-content:space-between;align-items:center">
+          <span class="shr" style="color:var(--cyan)">TOTAL VENTA</span>
+          <span class="rb" id="v-total" style="color:var(--cyan)">$ 0.00</span>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <!-- M2: CORTO PLAZO -->
+  <div style="border-bottom:1px solid var(--border)">
+    <div class="mod-hdr" onclick="toggleMod('mod-cp')">
+      <div class="mod-badge" style="border:1px solid rgba(255,176,64,.35);background:rgba(255,176,64,.12)"><span style="color:var(--amber)">2</span></div>
+      <div>
+        <span class="shr" style="color:var(--amber)">CORTO PLAZO</span>
+        <span class="mono" style="font-size:8px;color:var(--muted);margin-left:6px;letter-spacing:1px">CAPITAL PROPIO</span>
+      </div>
+      <span class="mono" style="font-size:10px;color:var(--amber);margin-left:auto" id="cp-renta-hdr">$ 0.00</span>
+      <svg id="arrow-mod-cp" width="12" height="12" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24" style="margin-left:6px;transition:transform .3s"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div id="mod-cp" class="mod-body" style="max-height:9999px;opacity:1">
+    <div style="padding:10px 12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <div><label class="lm">PLAZO CONTRATO (meses)</label>
+          <select id="cp-plazo" oninput="saveAndCompute()" class="vi a" style="text-align:left;cursor:pointer;padding-right:20px">
+            <option value="1">1 mes</option><option value="2">2 meses</option><option value="3">3 meses</option>
+            <option value="6" selected>6 meses</option><option value="9">9 meses</option><option value="12">12 meses</option>
+            <option value="18">18 meses</option><option value="24">24 meses</option>
+          </select>
+        </div>
+        <div><label class="lm" style="color:var(--amber)">VIDA ÚTIL CP (meses)</label>
+          <input type="number" id="cp-vida" value="60" min="1" step="1" oninput="saveAndCompute()" class="vi a" style="border-color:rgba(255,176,64,.4)">
+        </div>
+        <div><label class="lm">GTOS. OPERATIVOS (% anual)</label>
+          <input type="number" id="cp-op" value="5" min="0" step="0.5" oninput="saveAndCompute()" class="vi a">
+        </div>
+        <div><label class="lm" style="color:var(--amber)">ROA ANUAL (%)</label>
+          <input type="number" id="cp-roa" value="35" min="0" max="200" step="0.5" oninput="saveAndCompute()" class="vi a" style="border-color:rgba(255,176,64,.5)">
+        </div>
+        <div style="grid-column:1/3"><label class="lm">FACTOR MERMA MONTAJE (% del activo)</label>
+          <div style="display:flex;align-items:center;gap:5px">
+            <input type="number" id="cp-merma" value="2" min="0" max="20" step="0.1" oninput="saveAndCompute()" class="vi a" style="max-width:80px">
+            <span class="mono" style="font-size:10px;color:var(--muted)">% → se amortiza en el plazo</span>
+          </div>
+        </div>
+      </div>
+      <div style="border:1px solid rgba(255,176,64,.25);border-radius:8px;padding:10px;background:rgba(255,176,64,.03)">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 7px;background:rgba(255,176,64,.07);border-radius:4px;border:1px solid rgba(255,176,64,.2);margin-bottom:8px">
+          <span class="mono" style="font-size:10px;color:var(--amber)">BASE = TOTAL VENTA</span>
+          <span class="mono" style="font-size:11px;font-weight:700;color:var(--amber)" id="cp-base">$ 0.00</span>
+        </div>
+        <div class="shr" style="color:var(--muted);font-size:10px;margin-bottom:5px">DESGLOSE RENTA MENSUAL</div>
+        <div class="rr"><span style="color:var(--muted)">Dep. (venta÷<span id="cp-vida-lbl">60</span>m):</span><span id="cp-dep">$ 0.00</span></div>
+        <div class="rr"><span style="color:var(--muted)">Merma montaje (<span id="cp-merma-lbl">2</span>%÷<span id="cp-plazo-lbl">6</span>m):</span><span id="cp-merma-val" style="color:var(--amber)">$ 0.00</span></div>
+        <div class="rr"><span style="color:var(--muted)">Gtos.Op. (<span id="cp-op-lbl">5</span>%/año):</span><span id="cp-gop">$ 0.00</span></div>
+        <div id="row-cons-cp" class="rr" style="display:none"><span style="color:#FFB040;opacity:.8">Consumibles÷<span id="cp-cons-plazo">6</span>m:</span><span id="cp-cons" style="color:#FFB040">$ 0.00</span></div>
+        <div class="rr" style="border-top:1px solid rgba(255,176,64,.2);padding-top:5px;margin-top:3px">
+          <span style="color:var(--amber);font-weight:600">ROA <span id="cp-roa-lbl">35</span>% anual:</span>
+          <span id="cp-roa-val" style="color:var(--amber);font-weight:600">$ 0.00</span>
+        </div>
+        <div style="border-top:1px solid rgba(255,176,64,.3);padding-top:7px;margin-top:5px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+            <span class="shr" style="color:var(--amber)">RENTA AL CLIENTE</span>
+            <span class="rb" id="cp-renta" style="color:var(--amber)">$ 0.00</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+            <div class="kpi" style="border:1px solid rgba(0,232,122,.3);background:rgba(0,232,122,.06)">
+              <div class="kl">GANANCIA MENSUAL</div>
+              <div class="kv" id="cp-ganancia" style="color:var(--green)">$ 0.00</div>
+            </div>
+            <div class="kpi" style="border:1px solid rgba(0,212,255,.25);background:rgba(0,212,255,.05)">
+              <div class="kl">PUNTO EQUILIBRIO</div>
+              <div class="kv" id="cp-pe" style="color:var(--cyan)">— m</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <!-- M3: LARGO PLAZO -->
+  <div style="border-bottom:1px solid var(--border)">
+    <div class="mod-hdr" onclick="toggleMod('mod-lp')">
+      <div class="mod-badge" style="border:1px solid rgba(0,232,122,.35);background:rgba(0,232,122,.12)"><span style="color:var(--green)">3</span></div>
+      <div>
+        <span class="shr" style="color:var(--green)">LARGO PLAZO</span>
+        <span class="mono" style="font-size:8px;color:var(--muted);margin-left:6px;letter-spacing:1px">BANCO FINANCIA</span>
+      </div>
+      <span class="mono" style="font-size:10px;color:var(--green);margin-left:auto" id="lp-renta-hdr">$ 0.00</span>
+      <svg id="arrow-mod-lp" width="12" height="12" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24" style="margin-left:6px;transition:transform .3s"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div id="mod-lp" class="mod-body" style="max-height:9999px;opacity:1">
+    <div style="padding:10px 12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <div><label class="lm" style="color:var(--green)">VIDA ÚTIL LP (meses)</label>
+          <input type="number" id="lp-vida" value="120" min="1" step="1" oninput="saveAndCompute()" class="vi g" style="border-color:rgba(0,232,122,.4)">
+        </div>
+        <div><label class="lm" style="color:var(--red)">PLAZO PRÉSTAMO BANCO (m)</label>
+          <input type="number" id="lp-n" value="24" min="1" step="1" oninput="saveAndCompute()" class="vi g" style="border-color:rgba(255,61,87,.45)">
+        </div>
+        <div><label class="lm" style="color:var(--cyan)">PLAZO CONTRATO CLIENTE (m)</label>
+          <input type="number" id="lp-n-contrato" value="36" min="1" step="1" oninput="saveAndCompute()" class="vi g" style="border-color:rgba(0,212,255,.45)">
+        </div>
+        <div><label class="lm" style="color:var(--red)">TEA BANCO (%)</label>
+          <input type="number" id="lp-tea-banco" value="7" min="0" step="0.5" oninput="saveAndCompute()" class="vi g" style="border-color:rgba(255,61,87,.4)">
+        </div>
+        <div><label class="lm" style="color:var(--green)">TASA COTIZACIÓN CLIENTE (%)</label>
+          <input type="number" id="lp-tea-cot" value="15" min="0" step="0.5" oninput="saveAndCompute()" class="vi g" style="border-color:rgba(0,232,122,.5)">
+        </div>
+        <div><label class="lm">GTOS. OPERATIVOS (% anual)</label>
+          <input type="number" id="lp-op" value="5" min="0" step="0.5" oninput="saveAndCompute()" class="vi g">
+        </div>
+        <div><label class="lm">GASTOS FORMALIZACIÓN ($)</label>
+          <input type="number" id="lp-form" value="350" min="0" step="50" oninput="saveAndCompute()" class="vi g">
+        </div>
+        <div><label class="lm" style="color:var(--green)">RENTA POST-PRÉSTAMO (%)</label>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" id="lp-post-pct" value="80" min="10" max="100" step="5" oninput="saveAndCompute()" class="vi g" style="border-color:rgba(0,232,122,.45)">
+            <span class="mono" style="font-size:10px;color:var(--muted)">%</span>
+          </div>
+        </div>
+        <div style="grid-column:1/3"><label class="lm">FONDO DE REPOSICIÓN (% anual sobre activo)</label>
+          <div style="display:flex;align-items:center;gap:5px">
+            <input type="number" id="lp-fondo-rep" value="5" min="0" max="20" step="0.5" oninput="saveAndCompute()" class="vi g" style="max-width:75px">
+            <span class="mono" style="font-size:10px;color:var(--muted)">% si contrato > <span id="lp-umbral-lbl">80</span>% vida útil</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:14px">
+          <span class="mono" style="font-size:9px;color:var(--muted)">MES 0</span>
+          <span class="mono" style="font-size:9px;color:var(--cyan)" id="tl-end-label">MES 36</span>
+        </div>
+        <div class="tl-track" id="lp-timeline">
+          <div class="tl-phase1" id="tl-phase1" style="width:67%"><span class="tl-label" id="tl-phase1-label">FASE 1: 24m — CON DEUDA</span></div>
+          <div class="tl-phase2" id="tl-phase2" style="left:67%;width:33%"><span class="tl-label" id="tl-phase2-label">FASE 2: 12m — ACTIVO LIBRE</span></div>
+          <div class="tl-marker" id="tl-marker" style="left:67%" data-label="LIBRE"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px">
+          <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:8px;border-radius:2px;background:rgba(255,61,87,.5);flex-shrink:0"></div><span class="mono" style="font-size:9px;color:var(--muted)">FASE 1: banco financia</span></div>
+          <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:8px;border-radius:2px;background:rgba(0,232,122,.5);flex-shrink:0"></div><span class="mono" style="font-size:9px;color:var(--muted)">FASE 2: utilidad pura</span></div>
+        </div>
+      </div>
+
+      <!-- Result box LP -->
+      <div style="border:1px solid rgba(0,232,122,.25);border-radius:8px;padding:10px;background:rgba(0,232,122,.03);margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 7px;background:rgba(0,232,122,.06);border-radius:4px;border:1px solid rgba(0,232,122,.18);margin-bottom:8px">
+          <span class="mono" style="font-size:10px;color:var(--green)">BASE = TOTAL VENTA</span>
+          <span class="mono" style="font-size:11px;font-weight:700;color:var(--green)" id="lp-base">$ 0.00</span>
+        </div>
+        <div class="shr" style="color:var(--muted);font-size:10px;margin-bottom:5px">ESTRUCTURA FINANCIAMIENTO</div>
+        <div class="rr"><span style="color:var(--muted)">Capital:</span><span id="lp-capital">$ 0.00</span></div>
+        <div class="rr"><span style="color:var(--muted)">+ Formalización:</span><span id="lp-form-disp" style="color:var(--muted)">$ 0.00</span></div>
+        <div class="rr" style="margin-bottom:2px"><span style="color:var(--muted)">Total financiado banco:</span><span id="lp-total-fin" style="font-weight:600">$ 0.00</span></div>
+        <div id="lp-vida-alerta" style="display:none;padding:4px 7px;background:rgba(255,176,64,.1);border:1px solid rgba(255,176,64,.3);border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--amber);margin:5px 0;line-height:1.4"></div>
+
+        <!-- Phase 1 -->
+        <div class="phase-card" style="background:rgba(255,61,87,.06);border:1px solid rgba(255,61,87,.25);margin-top:6px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0"></div>
+            <span class="shr" style="color:var(--red);font-size:10px">FASE 1 — CON DEUDA BANCARIA</span>
+            <span class="mono" style="font-size:9px;color:var(--muted);margin-left:auto">meses 1–<span id="lp-f1-end">24</span></span>
+          </div>
+          <div class="rr"><span style="color:var(--muted)">Cuota banco (<span id="lp-tea-lbl">7</span>% TEA):</span><span id="lp-cuota-banco" style="color:var(--red)">$ 0.00</span></div>
+          <div class="rr"><span style="color:var(--muted)">Gtos.Op. (<span id="lp-op-lbl">5</span>%):</span><span id="lp-gop">$ 0.00</span></div>
+          <div class="rr" style="border-top:1px solid rgba(255,61,87,.2);padding-top:4px;margin-top:3px">
+            <span style="color:var(--green);font-weight:600">Spread (<span id="lp-cot-lbl">15</span>%−<span id="lp-banco-lbl2">7</span>%):</span>
+            <span id="lp-spread" style="color:var(--green);font-weight:600">$ 0.00</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,61,87,.25);padding-top:6px;margin-top:5px">
+            <span class="shr" style="color:var(--red);font-size:11px">RENTA F1</span>
+            <span class="mono" style="font-weight:700;font-size:14px;color:var(--red)" id="lp-renta">$ 0.00</span>
+          </div>
+        </div>
+
+        <!-- Phase 2 -->
+        <div class="phase-card" style="background:rgba(0,232,122,.07);border:1px solid rgba(0,232,122,.3)">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
+            <span class="shr" style="color:var(--green);font-size:10px">FASE 2 — ACTIVO 100% ZGROUP</span>
+            <span class="mono" style="font-size:9px;color:var(--muted);margin-left:auto">meses <span id="lp-f2-start">25</span>–<span id="lp-f2-end">36</span></span>
+          </div>
+          <div class="rr"><span style="color:var(--muted)">Renta F1 × <span id="lp-post-pct-lbl">80</span>%:</span><span id="lp-renta-f2" style="color:var(--green)">$ 0.00</span></div>
+          <div class="rr"><span style="color:var(--muted)">Gtos.Op. (sin cuota banco):</span><span id="lp-gop-f2" style="color:var(--muted)">$ 0.00</span></div>
+          <div id="row-fondo-rep" class="rr" style="display:none"><span style="color:var(--cyan)">Fondo reposición (<span id="lp-fondo-lbl">5</span>%):</span><span id="lp-fondo-val" style="color:var(--cyan)">$ 0.00</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(0,232,122,.3);padding-top:6px;margin-top:5px">
+            <span class="shr" style="color:var(--green);font-size:11px">UTILIDAD F2</span>
+            <span class="mono" style="font-weight:700;font-size:14px;color:var(--green)" id="lp-ganancia-f2">$ 0.00</span>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:6px">
+          <div class="kpi" style="border:1px solid rgba(255,61,87,.25);background:rgba(255,61,87,.05)">
+            <div class="kl">UTILIDAD F1</div>
+            <div class="kv" id="lp-ganancia" style="color:var(--green);font-size:11px">$ 0.00</div>
+            <div style="font-size:8px;color:var(--muted);font-family:'JetBrains Mono',monospace" id="lp-f1-dur-lbl">24m</div>
+          </div>
+          <div class="kpi" style="border:1px solid rgba(0,232,122,.3);background:rgba(0,232,122,.06)">
+            <div class="kl">UTILIDAD F2</div>
+            <div class="kv" id="lp-kpi-f2" style="color:var(--green);font-size:11px">$ 0.00</div>
+            <div style="font-size:8px;color:var(--muted);font-family:'JetBrains Mono',monospace" id="lp-f2-dur-lbl">12m</div>
+          </div>
+          <div class="kpi" style="border:1px solid rgba(0,212,255,.25);background:rgba(0,212,255,.05)">
+            <div class="kl">TOTAL CICLO</div>
+            <div class="kv" id="lp-total-ciclo" style="color:var(--cyan);font-size:11px">$ 0.00</div>
+            <div style="font-size:8px;color:var(--muted);font-family:'JetBrains Mono',monospace" id="lp-ciclo-dur-lbl">36m</div>
+          </div>
+        </div>
+        <span id="lp-pe" style="display:none">— m</span>
+        <span id="lp-kpi-banco" style="display:none">$ 0.00</span>
+      </div>
+      <button id="amort-btn" class="bg1" style="width:100%;padding:4px;font-size:11px;letter-spacing:1px" onclick="toggleAmort()">VER TABLA AMORTIZACIÓN BANCO ▼</button>
+      <div id="amort-table" style="display:none;margin-top:6px;overflow-x:auto;max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:5px"></div>
+    </div>
+    </div>
+  </div>
+
+  <!-- M4: ESTACIONALIDAD -->
+  <div style="border-bottom:1px solid var(--border)">
+    <div class="mod-hdr" onclick="toggleMod('mod-est')">
+      <div class="mod-badge" style="border:1px solid rgba(168,85,247,.35);background:rgba(168,85,247,.12)"><span style="color:var(--violet)">4</span></div>
+      <div>
+        <span class="shr" style="color:var(--violet)">ESTACIONALIDAD</span>
+        <span class="mono" style="font-size:8px;color:var(--muted);margin-left:6px;letter-spacing:1px">AGRO / STANDBY</span>
+      </div>
+      <span class="mono" style="font-size:10px;color:var(--violet);margin-left:auto" id="est-renta-hdr">$ 0.00/año</span>
+      <svg id="arrow-mod-est" width="12" height="12" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24" style="margin-left:6px;transform:rotate(-90deg);transition:transform .3s"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div id="mod-est" class="mod-body" style="max-height:0;opacity:0">
+    <div style="padding:10px 12px">
+      <p class="mono" style="font-size:10px;color:var(--muted);line-height:1.5;margin-bottom:8px">Para clientes agro que operan solo 6-8 meses/año. Tarifa Standby protege el contrato sin desmontaje.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <div><label class="lm" style="color:var(--violet)">MESES OPERATIVOS (full)</label>
+          <input type="number" id="est-op" value="8" min="1" max="11" step="1" oninput="saveAndCompute()" class="vi v"></div>
+        <div><label class="lm">MESES STANDBY (reducida)</label>
+          <input type="number" id="est-sb" value="4" min="1" max="11" step="1" oninput="saveAndCompute()" class="vi v"></div>
+        <div><label class="lm">SEGURO (% anual del activo)</label>
+          <input type="number" id="est-seguro" value="1" min="0" step="0.1" oninput="saveAndCompute()" class="vi v" style="max-width:75px"></div>
+        <div><label class="lm" style="color:var(--violet)">% AJUSTE STANDBY</label>
+          <input type="number" id="est-sb-pct" value="35" min="5" max="100" step="5" oninput="saveAndCompute()" class="vi v" style="border-color:rgba(168,85,247,.5)"></div>
+      </div>
+      <div id="est-alerta-sb" style="display:none;padding:6px 8px;background:rgba(255,61,87,.1);border:1px solid rgba(255,61,87,.35);border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--red);margin-bottom:8px;line-height:1.5"></div>
+      <div style="border:1px solid rgba(168,85,247,.25);border-radius:8px;padding:10px;background:rgba(168,85,247,.03);margin-bottom:8px">
+        <div class="shr" style="color:var(--muted);font-size:10px;margin-bottom:6px">ESTRUCTURA TARIFARIA MENSUAL</div>
+        <div style="padding:6px 8px;background:rgba(0,232,122,.05);border:1px solid rgba(0,232,122,.2);border-radius:5px;margin-bottom:5px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+            <span class="mono" style="font-size:9px;color:var(--green)">🟢 RENTA FULL (meses operativos)</span>
+            <span class="mono" style="font-size:11px;font-weight:700;color:var(--green)" id="est-renta-full-val">$ 0.00</span>
+          </div>
+          <div class="rr" style="margin-bottom:0"><span style="color:var(--muted)">× <span id="est-op-lbl">8</span> meses:</span><span id="est-ingreso-full" style="color:var(--green)">$ 0.00</span></div>
+        </div>
+        <div style="padding:6px 8px;background:rgba(168,85,247,.05);border:1px solid rgba(168,85,247,.2);border-radius:5px;margin-bottom:5px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span class="mono" style="font-size:9px;color:var(--violet)">🟣 TARIFA STANDBY (<span id="est-sb-pct-lbl">35</span>% de Full)</span>
+            <span class="mono" style="font-size:11px;font-weight:700;color:var(--violet)" id="est-renta-sb">$ 0.00</span>
+          </div>
+          <div class="rr"><span style="color:var(--muted)">Cuota banco:</span><span id="est-cuota-banco" style="color:var(--red)">$ 0.00</span></div>
+          <div class="rr"><span style="color:var(--muted)">Seguro (<span id="est-seg-lbl">1</span>%):</span><span id="est-seguro-val">$ 0.00</span></div>
+          <div class="rr"><span style="color:var(--muted)">Gestión 5%:</span><span id="est-gestion">$ 0.00</span></div>
+          <div class="rr" style="margin-top:3px;border-top:1px solid rgba(168,85,247,.2);padding-top:3px">
+            <span style="color:var(--muted)">Costo financiero mínimo:</span><span id="est-costo-min" style="color:var(--muted)">$ 0.00</span>
+          </div>
+          <div class="rr" style="margin-bottom:0"><span style="color:var(--muted)">× <span id="est-sb-lbl">4</span> meses:</span><span id="est-ingreso-sb" style="color:var(--violet)">$ 0.00</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
+          <div class="kpi" style="border:1px solid rgba(168,85,247,.3);background:rgba(168,85,247,.06)"><div class="kl">INGRESO/AÑO</div><div class="kv" id="est-ingreso-total" style="color:var(--violet);font-size:12px">$ 0.00</div></div>
+          <div class="kpi" style="border:1px solid rgba(0,232,122,.3);background:rgba(0,232,122,.06)"><div class="kl">GANANCIA/AÑO</div><div class="kv" id="est-ganancia-total" style="color:var(--green);font-size:12px">$ 0.00</div></div>
+          <div class="kpi" style="border:1px solid rgba(0,212,255,.25);background:rgba(0,212,255,.05)"><div class="kl">MARGEN %</div><div class="kv" id="est-margen-pct" style="color:var(--cyan);font-size:12px">0.0%</div></div>
+        </div>
+      </div>
+      <div style="border:2px solid var(--cyan);border-radius:8px;overflow:hidden;margin-top:4px">
+        <div style="padding:7px 10px;background:rgba(0,229,255,.12);display:flex;align-items:center;gap:7px">
+          <svg width="11" height="11" fill="none" stroke="var(--cyan)" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          <span class="shr" style="color:var(--cyan);font-size:11px">CUADRO ANALÍTICO — PROYECCIÓN 5 AÑOS · REGLA DE ORO ✓</span>
+        </div>
+        <div style="overflow-x:auto;width:100%">
+          <table class="anal-table">
+            <thead><tr>
+              <th class="col-year" style="text-align:left;color:var(--text)">AÑO / FASE</th>
+              <th class="col-num" style="color:var(--cyan)">ING. BRUTO</th>
+              <th class="col-num" style="color:var(--red)">PAGO BANCO</th>
+              <th class="col-num" style="color:var(--muted)">GTOS.OP.</th>
+              <th class="col-num" style="color:var(--green)">UT. NETA</th>
+              <th class="col-num" style="color:var(--amber)">ACUMULADO</th>
+            </tr></thead>
+            <tbody id="est-tabla-body"></tbody>
+            <tfoot id="est-tabla-total" style="display:none">
+              <tr class="anal-totals">
+                <td>TOTAL 5 AÑOS</td>
+                <td class="col-num" id="est-tot-ing">—</td>
+                <td class="col-num" id="est-tot-banco">—</td>
+                <td class="col-num" id="est-tot-gst">—</td>
+                <td class="col-num" id="est-tot-util">—</td>
+                <td class="col-num" id="est-tot-acum">—</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <!-- M5: PANEL GERENCIAL -->
+  <div>
+    <div class="mod-hdr" onclick="toggleMod('mod-cmp')">
+      <div class="mod-badge" style="border:1px solid rgba(0,212,255,.35);background:rgba(0,212,255,.12)">
+        <svg width="10" height="10" fill="none" stroke="var(--cyan)" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <span class="shr" style="color:var(--cyan)">PANEL GERENCIAL</span>
+      <svg id="arrow-mod-cmp" width="12" height="12" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24" style="margin-left:auto;transition:transform .3s"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div id="mod-cmp" class="mod-body" style="max-height:9999px;opacity:1">
+    <div style="padding:10px 12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span class="mono" style="font-size:10px;color:var(--muted)">HORIZONTE ANÁLISIS:</span>
+        <div style="display:flex;align-items:center;gap:5px">
+          <input type="number" id="cmp-period" value="24" min="1" max="120" step="1" oninput="saveAndCompute()" style="width:44px;padding:2px 5px;background:var(--card);border:1px solid var(--border);color:var(--cyan);border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;text-align:center">
+          <span class="mono" style="font-size:10px;color:var(--muted)">meses</span>
+        </div>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--card)">
+          <div style="padding:6px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)">INDICADOR</div>
+          <div style="padding:6px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--amber);text-align:center;border-left:1px solid var(--border)">CORTO PLAZO</div>
+          <div style="padding:6px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);text-align:center;border-left:1px solid var(--border)">LARGO PLAZO</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border)">
+          <div style="padding:7px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)">Renta cliente/mes</div>
+          <div style="padding:7px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--amber)" id="cmp-renta-cp">—</div>
+          <div style="padding:7px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--green)" id="cmp-renta-lp">—</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border)">
+          <div style="padding:7px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)">Capital en riesgo</div>
+          <div style="padding:7px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--red)" id="cmp-cap-cp">—</div>
+          <div style="padding:7px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--green)">$ 0</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border)">
+          <div style="padding:7px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)">Punto de equilibrio</div>
+          <div style="padding:7px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--cyan)" id="cmp-pe-cp">—</div>
+          <div style="padding:7px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--cyan)" id="cmp-pe-lp">—</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:2px solid rgba(255,61,87,.3);background:rgba(255,61,87,.04)">
+          <div style="padding:6px 8px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--red)">Utilidad F1 (c/deuda)</div>
+          <div style="padding:6px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)" id="cmp-gan-cp">—</div>
+          <div style="padding:6px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--green)" id="cmp-gan-lp-f1">—</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid rgba(0,232,122,.2);background:rgba(0,232,122,.04)">
+          <div style="padding:6px 8px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--green)">Utilidad F2 (100% ZG)</div>
+          <div style="padding:6px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">—</div>
+          <div style="padding:6px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--green)" id="cmp-gan-lp-f2">—</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border)">
+          <div style="padding:7px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)">Ganancia <span id="cmp-p-lbl">24</span>m</div>
+          <div style="padding:7px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--amber)" id="cmp-total-cp">—</div>
+          <div style="padding:7px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--green)" id="cmp-total-lp">—</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:2px solid rgba(0,212,255,.2);background:rgba(0,212,255,.04)">
+          <div style="padding:6px 8px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--cyan)">TOTAL CICLO VIDA LP</div>
+          <div style="padding:6px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)">—</div>
+          <div style="padding:6px 8px;text-align:center;border-left:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--cyan)" id="cmp-ciclo-lp">—</div>
+        </div>
+      </div>
+      <div id="cmp-alerta" style="display:none;padding:7px 10px;background:rgba(255,176,64,.1);border:1px solid rgba(255,176,64,.35);border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--amber);margin-bottom:7px;line-height:1.5"></div>
+      <div id="cmp-veredicto" style="padding:9px 11px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);color:var(--cyan);white-space:pre-wrap">—</div>
+    </div>
+    </div>
+  </div>
+
+</div><!-- end right panel -->
+</div><!-- end 3-col -->
+</div><!-- end workspace -->
+
+<!-- MODAL -->
+<div id="modal-overlay" style="display:none;position:fixed;inset:0;z-index:50;background:rgba(8,13,24,.9);align-items:center;justify-content:center;backdrop-filter:blur(5px)">
+  <div id="modal-box" class="fade-in" style="width:100%;max-width:460px;margin:16px;border-radius:12px;background:var(--surface);border:1px solid rgba(0,212,255,.3);box-shadow:0 30px 80px rgba(0,0,0,.7)">
+    <div style="padding:13px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span class="shr" id="modal-title" style="color:var(--cyan)">NUEVO PROYECTO</span>
+      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">✕</button>
+    </div>
+    <div id="modal-body" style="padding:18px"></div>
+  </div>
+</div>
+
+<div id="toast">—</div>
+
+<!-- Scripts (load order matters) -->
+<script src="js/catalog.js"></script>
+<script src="js/api.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/compute.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

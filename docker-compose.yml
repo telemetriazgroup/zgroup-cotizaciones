@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: zgroup-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-zgroup}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-zgroup123}
+      POSTGRES_DB: ${DB_NAME:-zgroup_cotizaciones}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - zgroup_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-zgroup} -d ${DB_NAME:-zgroup_cotizaciones}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: zgroup-api
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-zgroup}
+      DB_PASSWORD: ${DB_PASSWORD:-zgroup123}
+      DB_NAME: ${DB_NAME:-zgroup_cotizaciones}
+    ports:
+      - "${API_PORT:-3001}:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: zgroup-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8088}:80"
+    depends_on:
+      - api
+
+volumes:
+  zgroup_pg_data:
