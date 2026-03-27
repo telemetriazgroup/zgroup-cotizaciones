@@ -141,4 +141,10 @@ const API = {
 
   addPlan: (pid, plan) => apiFetch(`/projects/${pid}/plans`, { method: 'POST', body: JSON.stringify(plan) }),
   deletePlan: (pid, plid) => apiFetch(`/projects/${pid}/plans/${plid}`, { method: 'DELETE' }),
+
+  listUsers: () => apiFetch('/users'),
+  getUser: (id) => apiFetch(`/users/${id}`),
+  createUser: (data) => apiFetch('/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (id, data) => apiFetch(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteUser: (id) => apiFetch(`/users/${id}`, { method: 'DELETE' }),
 };

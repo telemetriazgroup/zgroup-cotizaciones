@@ -4,10 +4,12 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const { initDb } = require('./db');
 const authRoutes = require('./routes/auth');
+const usersRoutes = require('./routes/users');
 const projects = require('./routes/projects');
 const items = require('./routes/items');
 const plans = require('./routes/plans');
 const { requireAuth } = require('./middleware/auth');
+const requireAdmin = require('./middleware/requireAdmin');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -31,6 +33,7 @@ app.get('/api/health', (_req, res) =>
 app.use('/api/auth', authRoutes);
 
 // ── Protected ───────────────────────────────────────────────────────
+app.use('/api/users', requireAuth, requireAdmin, usersRoutes);
 app.use('/api/projects', requireAuth, projects);
 app.use('/api/projects', requireAuth, items);
 app.use('/api/projects', requireAuth, plans);

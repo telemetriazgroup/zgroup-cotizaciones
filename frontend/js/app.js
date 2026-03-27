@@ -5,6 +5,7 @@ const state = {
   projects:  [],
   currentId: null,
   catFilter: 'Todos',
+  appView:   'quote', // 'quote' | 'users'
 };
 
 function isViewer() {
@@ -149,6 +150,7 @@ function renderProjectSelect() {
 }
 
 function render() {
+  if (state.appView !== 'quote') return;
   const p = curP();
   document.getElementById('empty-state').style.display  = p ? 'none'  : 'flex';
   document.getElementById('workspace').style.display    = p ? 'block' : 'none';
@@ -492,18 +494,25 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('modal-overlay').style.display === 'flex') {
     if (document.getElementById('np-name')) confirmNewProject();
     else if (document.getElementById('ci-name')) submitCustomItem();
+    else if (document.getElementById('uu-email')) submitUserForm(!document.getElementById('uu-id'));
   }
 });
 
 /* ── Auth + Init (Módulo 0) ── */
 function afterLogin() {
   document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-root').classList.add('is-visible');
   const hu = document.getElementById('hdr-user');
   hu.style.display = 'flex';
   document.getElementById('hdr-email').textContent = state.user.email;
   document.getElementById('hdr-email').title = state.user.email;
   document.getElementById('hdr-role').textContent = state.user.role;
+  const navUsers = document.getElementById('nav-users');
+  if (navUsers) {
+    navUsers.style.display = state.user.role === 'ADMIN' ? 'flex' : 'none';
+  }
   applyViewerMode();
+  applySideNavFromStorage();
   window.location.hash = '#/';
 }
 
@@ -532,6 +541,8 @@ async function logoutUser() {
   state.user = null;
   state.projects = [];
   state.currentId = null;
+  state.appView = 'quote';
+  document.getElementById('app-root').classList.remove('is-visible');
   document.getElementById('hdr-user').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('login-pass').value = '';
@@ -540,6 +551,9 @@ async function logoutUser() {
 }
 
 async function initWorkspace() {
+  state.appView = 'quote';
+  navigateApp('quote', true);
+
   document.getElementById('hdr-date').textContent =
     new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -563,6 +577,69 @@ async function initWorkspace() {
     render();
   } finally {
     loadingDone();
+  }
+}
+
+function setNavActive(view) {
+  const q = document.getElementById('nav-quote');
+  const u = document.getElementById('nav-users');
+  if (q) {
+    const on = view === 'quote';
+    q.style.border = on ? '1px solid rgba(0,229,255,.4)' : '1px solid var(--border-dim)';
+    q.style.background = on ? 'rgba(0,229,255,.14)' : 'transparent';
+    q.style.color = on ? 'var(--cyan)' : 'var(--muted)';
+  }
+  if (u) {
+    const on = view === 'users';
+    u.style.border = on ? '1px solid rgba(0,229,255,.4)' : '1px solid var(--border-dim)';
+    u.style.background = on ? 'rgba(0,229,255,.14)' : 'transparent';
+    u.style.color = on ? 'var(--cyan)' : 'var(--muted)';
+  }
+}
+
+/** @param {'quote'|'users'} view @param {boolean} [silent] */
+function navigateApp(view, silent) {
+  if (view === 'users' && state.user?.role !== 'ADMIN') {
+    toast('Solo administradores', 'red');
+    return;
+  }
+  state.appView = view;
+  const vUsers = document.getElementById('view-admin-users');
+  const ib = document.getElementById('info-bar');
+  const es = document.getElementById('empty-state');
+  const ws = document.getElementById('workspace');
+  if (view === 'users') {
+    if (ib) ib.style.display = 'none';
+    if (es) es.style.display = 'none';
+    if (ws) ws.style.display = 'none';
+    if (vUsers) vUsers.style.display = 'flex';
+    setNavActive('users');
+    if (!silent && typeof loadUsersTable === 'function') loadUsersTable();
+  } else {
+    if (vUsers) vUsers.style.display = 'none';
+    setNavActive('quote');
+    render();
+  }
+}
+
+function toggleSideNav() {
+  document.body.classList.toggle('side-nav-collapsed');
+  try {
+    localStorage.setItem('zgroup_side_nav_collapsed', document.body.classList.contains('side-nav-collapsed') ? '1' : '0');
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function applySideNavFromStorage() {
+  try {
+    if (localStorage.getItem('zgroup_side_nav_collapsed') === '1') {
+      document.body.classList.add('side-nav-collapsed');
+    } else {
+      document.body.classList.remove('side-nav-collapsed');
+    }
+  } catch (_) {
+    /* ignore */
   }
 }
 
@@ -600,5 +677,7 @@ async function bootstrapAuth() {
 
 window.submitLogin = submitLogin;
 window.logoutUser = logoutUser;
+window.navigateApp = navigateApp;
+window.toggleSideNav = toggleSideNav;
 
 bootstrapAuth();
