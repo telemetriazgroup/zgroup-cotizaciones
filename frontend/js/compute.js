@@ -6,6 +6,9 @@ function compute() {
   const p = curP();
   if (!p) return;
 
+  /* InfoBar BASE (total lista) alineado con footer Módulo 2 */
+  if (typeof computeTotals === 'function') computeTotals();
+
   const baseActivos = p.items.filter(i => i.tipo !== 'CONSUMIBLE').reduce((s, i) => s + (i.subtotal || 0), 0);
   const baseCons    = p.items.filter(i => i.tipo === 'CONSUMIBLE').reduce((s, i) => s + (i.subtotal || 0), 0);
   const base        = baseActivos + baseCons;

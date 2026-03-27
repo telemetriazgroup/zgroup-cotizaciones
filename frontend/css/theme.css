@@ -71,6 +71,26 @@ select{
 .fade-in{animation:fadeIn .18s ease-out}
 .pulse-dot{animation:pulseDot 2s ease-in-out infinite}
 
+/* Módulo 2 — fila al eliminar */
+@keyframes fadeOutRow{
+  from{opacity:1;transform:translateX(0)}
+  to{opacity:0;transform:translateX(-8px)}
+}
+.item-row.fade-out-exit{
+  animation:fadeOutRow .28s ease forwards;
+  pointer-events:none;
+}
+
+/* Vista Presupuesto (navbar): solo columna central */
+body.app-view-budget #workspace-col-catalog,
+body.app-view-budget #workspace-col-financial{display:none!important}
+body.app-view-budget #workspace-col-items{
+  flex:1 1 100%!important;
+  max-width:100%;
+  border-right:none!important;
+  border-left:none!important;
+}
+
 /* ── Input styles ── */
 .vi{background:var(--card);border:1.5px solid var(--border-dim);color:var(--text);
     padding:5px 9px;border-radius:5px;outline:none;width:100%;

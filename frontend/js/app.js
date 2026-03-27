@@ -5,8 +5,57 @@ const state = {
   projects:  [],
   currentId: null,
   catFilter: 'Todos',
-  appView:   'quote', // 'quote' | 'users' | 'catalog'
+  appView:   'quote', // 'quote' | 'budget' | 'users' | 'catalog'
 };
+
+/** @type {Map<string, ReturnType<typeof setTimeout>>} clave projectId:itemId */
+const itemPersistTimers = new Map();
+
+function cancelPersistItemTimer(projectId, itemId) {
+  const key = `${projectId}:${itemId}`;
+  const t = itemPersistTimers.get(key);
+  if (t) {
+    clearTimeout(t);
+    itemPersistTimers.delete(key);
+  }
+}
+
+function schedulePersistItem(itemId) {
+  const p = curP();
+  if (!p) return;
+  const key = `${p.id}:${itemId}`;
+  const prev = itemPersistTimers.get(key);
+  if (prev) clearTimeout(prev);
+  itemPersistTimers.set(
+    key,
+    setTimeout(() => {
+      itemPersistTimers.delete(key);
+      const proj = state.projects.find((x) => x.id === p.id);
+      const it = proj?.items.find((i) => i.id === itemId);
+      if (!proj || !it) return;
+      API.updateItem(proj.id, it.id, { unitPrice: it.unitPrice, qty: it.qty }).catch(console.warn);
+    }, 300)
+  );
+}
+
+function flushPendingItemSaves() {
+  const keys = [...itemPersistTimers.keys()];
+  for (const key of keys) {
+    const t = itemPersistTimers.get(key);
+    clearTimeout(t);
+    itemPersistTimers.delete(key);
+    const [pid, iid] = key.split(':');
+    const proj = state.projects.find((x) => x.id === pid);
+    const it = proj?.items.find((i) => i.id === iid);
+    if (proj && it) {
+      API.updateItem(proj.id, it.id, { unitPrice: it.unitPrice, qty: it.qty }).catch(console.warn);
+    }
+  }
+}
+
+function setAppViewBodyClass(view) {
+  document.body.classList.toggle('app-view-budget', view === 'budget');
+}
 
 function isViewer() {
   return !!(state.user && state.user.role === 'VIEWER');
@@ -89,16 +138,17 @@ function renderItems() {
   p.items.forEach(item => {
     const row = document.createElement('div');
     row.className = 'item-row fade-in';
+    row.dataset.itemId = item.id;
     row.style.cssText = 'display:grid;grid-template-columns:55px 1.6fr 48px 110px 70px 110px 28px;gap:5px;padding:5px 14px;border-bottom:1px solid var(--border-dim);align-items:center;transition:background .12s';
     row.innerHTML = `
       <span class="mono" style="font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.code}</span>
       <div><div style="font-size:11px;font-weight:500;color:var(--text)">${item.name}</div>
         <div style="font-size:9px;color:${item.tipo==='CONSUMIBLE'?'var(--amber)':'#3A5070'};margin-top:1px">${item.tipo}</div></div>
       <span class="mono" style="font-size:10px;color:var(--muted);text-align:center">${item.unit}</span>
-      <input type="number" value="${item.unitPrice}" min="0" step="0.01" onchange="updateItem('${item.id}','unitPrice',this.value)" class="vi" style="font-size:11px">
-      <input type="number" value="${item.qty}" min="0.01" step="0.01" onchange="updateItem('${item.id}','qty',this.value)" class="vi" style="font-size:11px;text-align:center">
+      <input type="number" value="${item.unitPrice}" min="0" step="0.01" oninput="onItemFieldInput('${item.id}','unitPrice',this.value)" class="vi" style="font-size:11px">
+      <input type="number" value="${item.qty}" min="0.01" step="0.01" oninput="onItemFieldInput('${item.id}','qty',this.value)" class="vi" style="font-size:11px;text-align:center">
       <span class="mono" style="font-size:11px;font-weight:600;color:var(--cyan);text-align:right" id="sub-${item.id}">${mf(item.subtotal)}</span>
-      <button onclick="removeItem('${item.id}')" style="background:none;border:none;cursor:pointer;color:var(--red);opacity:.4;font-size:13px;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.4">✕</button>`;
+      <button type="button" onclick="removeItem('${item.id}')" style="background:none;border:none;cursor:pointer;color:var(--red);opacity:.4;font-size:13px;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.4">✕</button>`;
     list.appendChild(row);
   });
   computeTotals();
@@ -154,7 +204,9 @@ function renderProjectSelect() {
 }
 
 function render() {
-  if (state.appView !== 'quote') return;
+  if (state.appView !== 'quote' && state.appView !== 'budget') return;
+  const hint = document.getElementById('budget-module-hint');
+  if (hint) hint.style.display = state.appView === 'budget' ? 'block' : 'none';
   const p = curP();
   document.getElementById('empty-state').style.display  = p ? 'none'  : 'flex';
   document.getElementById('workspace').style.display    = p ? 'block' : 'none';
@@ -162,6 +214,10 @@ function render() {
   if (!p) return;
   set('ib-name', p.name);
   set('ib-odoo', p.odooNumber || '—');
+  const bex = document.getElementById('budget-toolbar-extras');
+  const bnc = document.getElementById('btn-budget-new-catalog');
+  if (bex) bex.style.display = state.appView === 'budget' ? 'flex' : 'none';
+  if (bnc) bnc.style.display = state.appView === 'budget' && state.user?.role === 'ADMIN' ? 'inline-flex' : 'none';
   renderItems(); renderPlans(); compute();
 }
 
@@ -183,6 +239,7 @@ function loadProjectFields(p) {
 
 /* ── Project CRUD ── */
 async function selectProject(id) {
+  flushPendingItemSaves();
   if (!id) { state.currentId = null; render(); return; }
   try {
     loadingStart();
@@ -222,29 +279,40 @@ async function saveAndCompute() {
   API.updateProject(p.id, p).catch(e => console.warn('Save error:', e.message));
 }
 
-async function addItem(catItem) {
+/**
+ * @param {object} catItem
+ * @param {{ qty?: number, priceRaw?: string }} [opt] — si se pasa (p. ej. modal Presupuesto), no usa #add-qty / #add-price
+ */
+async function addItem(catItem, opt) {
   if (isViewer()) return;
-  const p = curP();
-  if (!p) { toast('⚠ Selecciona un proyecto', 'red'); return; }
-  const qty   = parseFloat(document.getElementById('add-qty').value) || 1;
-  const rawPu = document.getElementById('add-price').value.trim();
+  const proj = curP();
+  if (!proj) { toast('⚠ Selecciona un proyecto', 'red'); return; }
+  const qty =
+    opt && opt.qty != null
+      ? Math.max(0.01, Number(opt.qty) || 0.01)
+      : parseFloat(document.getElementById('add-qty')?.value) || 1;
+  const rawPu =
+    opt && 'priceRaw' in opt
+      ? String(opt.priceRaw ?? '').trim()
+      : (document.getElementById('add-price')?.value ?? '').trim();
   let price;
   if (rawPu === '') {
     price = catItem.price;
   } else {
-    const p = parseFloat(rawPu);
-    price = Number.isFinite(p) ? p : catItem.price;
+    const parsed = parseFloat(rawPu);
+    price = Number.isFinite(parsed) ? parsed : catItem.price;
   }
 
   // Check if already exists with same catalogId + price
-  const existing = p.items.find(i => i.catalogId === catItem.id && i.unitPrice === price);
+  const existing = proj.items.find((i) => i.catalogId === catItem.id && i.unitPrice === price);
   if (existing) {
     const newQty = parseFloat((existing.qty + qty).toFixed(4));
-    existing.qty      = newQty;
+    existing.qty = newQty;
     existing.subtotal = newQty * existing.unitPrice;
     renderItems(); computeTotals(); compute();
-    API.updateItem(p.id, existing.id, { unitPrice: existing.unitPrice, qty: newQty }).catch(console.warn);
-    document.getElementById('add-price').value = '';
+    API.updateItem(proj.id, existing.id, { unitPrice: existing.unitPrice, qty: newQty }).catch(console.warn);
+    const ap = document.getElementById('add-price');
+    if (ap && !opt) ap.value = '';
     toast('✱ CANTIDAD ACTUALIZADA', 'cyan');
     return;
   }
@@ -261,31 +329,155 @@ async function addItem(catItem) {
     qty,
     subtotal:  qty * price,
   };
-  p.items.push(newItem);
-  document.getElementById('add-price').value = '';
+  proj.items.push(newItem);
+  const ap = document.getElementById('add-price');
+  if (ap && !opt) ap.value = '';
   renderItems(); computeTotals(); compute();
-  API.addItem(p.id, newItem).catch(e => toast('Error guardando ítem: ' + e.message, 'red'));
+  API.addItem(proj.id, newItem).catch((e) => toast('Error guardando ítem: ' + e.message, 'red'));
   toast('+ PARTIDA AÑADIDA', 'cyan');
 }
 
-async function updateItem(id, field, val) {
+function escPickHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+/** Vista Presupuesto (sin columna catálogo): modal para buscar y añadir ítems del catálogo; ADMIN puede crear ítem con + NUEVO EN CATÁLOGO */
+function openCatalogPickModal() {
+  if (isViewer()) { toast('Solo lectura', 'amber'); return; }
+  if (!curP()) { toast('⚠ Selecciona un proyecto', 'red'); return; }
+  const pick = { catFilter: 'Todos', debounce: null };
+  document.getElementById('modal-title').textContent = 'AÑADIR DESDE CATÁLOGO';
+  document.getElementById('modal-body').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label class="lm">CANTIDAD</label><input type="number" id="pick-qty" value="1" min="0.01" step="0.01" class="vi" style="text-align:center"></div>
+        <div><label class="lm">P.UNIT CUSTOM</label><input type="number" id="pick-price" placeholder="auto" min="0" step="0.01" class="vi"></div>
+      </div>
+      <input type="text" id="pick-search" class="vi" placeholder="Buscar por nombre o código…" style="text-align:left" autocomplete="off">
+      <div id="pick-filters" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+      <div id="pick-list" style="max-height:min(48vh,320px);overflow-y:auto;border:1px solid var(--border-dim);border-radius:6px;padding:4px;background:var(--bg)"></div>
+      <button type="button" class="bg1" style="width:100%;padding:8px;font-size:12px" onclick="closeModal()">CERRAR</button>
+    </div>`;
+  openModal();
+
+  function renderPickFilters() {
+    const fc = document.getElementById('pick-filters');
+    if (!fc) return;
+    fc.innerHTML = '';
+    CATEGORIES.forEach((cat) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = cat === 'Todos' ? 'TODOS' : cat.split(' ')[0].toUpperCase().slice(0, 5);
+      btn.title = cat;
+      const active = pick.catFilter === cat;
+      btn.style.cssText = `padding:2px 8px;border-radius:4px;font-size:10px;font-family:Rajdhani,sans-serif;font-weight:600;cursor:pointer;border:1px solid ${active ? 'rgba(0,229,255,.4)' : 'var(--border)'};background:${active ? 'rgba(0,229,255,.14)' : 'transparent'};color:${active ? 'var(--cyan)' : 'var(--muted)'}`;
+      btn.onclick = () => {
+        pick.catFilter = cat;
+        renderPickFilters();
+        renderPickList();
+      };
+      fc.appendChild(btn);
+    });
+  }
+
+  function renderPickList() {
+    const list = document.getElementById('pick-list');
+    if (!list) return;
+    const q = (document.getElementById('pick-search')?.value || '').toLowerCase();
+    const items = CATALOG.filter((i) => {
+      const mc = pick.catFilter === 'Todos' || i.cat === pick.catFilter;
+      const ms = !q || i.name.toLowerCase().includes(q) || i.code.toLowerCase().includes(q);
+      return mc && ms;
+    });
+    list.innerHTML = '';
+    if (!items.length) {
+      list.innerHTML =
+        '<div class="mono" style="padding:12px;text-align:center;color:var(--muted);font-size:11px">Sin resultados</div>';
+      return;
+    }
+    items.forEach((item) => {
+      const d = document.createElement('div');
+      d.style.cssText =
+        'padding:6px 8px;border-radius:4px;cursor:pointer;border:1px solid var(--border-dim);margin-bottom:4px;background:var(--card);display:flex;justify-content:space-between;align-items:center;gap:8px;transition:border-color .12s';
+      d.onmouseenter = () => {
+        d.style.borderColor = 'rgba(0,229,255,.35)';
+      };
+      d.onmouseleave = () => {
+        d.style.borderColor = 'var(--border-dim)';
+      };
+      d.onclick = () => {
+        const qEl = document.getElementById('pick-qty');
+        const qty = parseFloat(qEl?.value) || 1;
+        const raw = (document.getElementById('pick-price')?.value ?? '').trim();
+        addItem(item, { qty, priceRaw: raw });
+        const pp = document.getElementById('pick-price');
+        if (pp) pp.value = '';
+        closeModal();
+      };
+      d.innerHTML = `<div style="min-width:0;flex:1">
+        <div style="font-size:11px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escPickHtml(item.name)}</div>
+        <div class="mono" style="font-size:9px;color:var(--muted)">${escPickHtml(item.code)} · ${escPickHtml(item.tipo)}</div>
+      </div><div class="mono" style="font-size:12px;color:var(--cyan);flex-shrink:0">${mf(item.price)}</div>`;
+      list.appendChild(d);
+    });
+  }
+
+  renderPickFilters();
+  renderPickList();
+  const searchEl = document.getElementById('pick-search');
+  if (searchEl) {
+    searchEl.addEventListener('input', () => {
+      clearTimeout(pick.debounce);
+      pick.debounce = setTimeout(renderPickList, 200);
+    });
+  }
+  setTimeout(() => document.getElementById('pick-search')?.focus(), 80);
+}
+
+/** Edición inline Módulo 2 — UI inmediata, API con debounce 300 ms */
+function onItemFieldInput(id, field, val) {
   if (isViewer()) return;
-  const p  = curP();
-  const it = p?.items.find(i => i.id === id);
+  const p = curP();
+  const it = p?.items.find((i) => i.id === id);
   if (!it) return;
-  it[field]     = parseFloat(val) || 0;
-  it.subtotal   = it.qty * it.unitPrice;
-  computeTotals(); compute();
-  API.updateItem(p.id, it.id, { unitPrice: it.unitPrice, qty: it.qty }).catch(console.warn);
+  if (field === 'qty') {
+    let q = parseFloat(val);
+    if (!Number.isFinite(q)) q = 0.01;
+    it.qty = Math.max(0.01, q);
+  } else {
+    let up = parseFloat(val);
+    if (!Number.isFinite(up)) up = 0;
+    it.unitPrice = Math.max(0, up);
+  }
+  it.subtotal = it.qty * it.unitPrice;
+  compute();
+  schedulePersistItem(id);
 }
 
 async function removeItem(id) {
   if (isViewer()) return;
   const p = curP();
   if (!p) return;
-  p.items = p.items.filter(i => i.id !== id);
-  renderItems(); compute();
-  API.deleteItem(p.id, id).catch(e => toast('Error: ' + e.message, 'red'));
+  const it = p.items.find((i) => i.id === id);
+  cancelPersistItemTimer(p.id, id);
+  if (it) {
+    try {
+      await API.updateItem(p.id, id, { unitPrice: it.unitPrice, qty: it.qty });
+    } catch (_) {
+      /* continuar con borrado */
+    }
+  }
+  const row = document.querySelector(`#items-list [data-item-id="${id}"]`);
+  if (row) {
+    row.classList.add('fade-out-exit');
+    await new Promise((r) => setTimeout(r, 280));
+  }
+  p.items = p.items.filter((i) => i.id !== id);
+  renderItems();
+  compute();
+  API.deleteItem(p.id, id).catch((e) => toast('Error: ' + e.message, 'red'));
 }
 
 async function clearAllItems() {
@@ -293,9 +485,11 @@ async function clearAllItems() {
   const p = curP();
   if (!p || !p.items.length) return;
   if (!confirm('¿Limpiar todas las partidas?')) return;
+  flushPendingItemSaves();
   p.items = [];
-  renderItems(); compute();
-  API.clearItems(p.id).catch(e => toast('Error: ' + e.message, 'red'));
+  renderItems();
+  compute();
+  API.clearItems(p.id).catch((e) => toast('Error: ' + e.message, 'red'));
 }
 
 /* ── Plans ── */
@@ -555,11 +749,13 @@ async function submitLogin(ev) {
 }
 
 async function logoutUser() {
+  flushPendingItemSaves();
   await API.logout();
   state.user = null;
   state.projects = [];
   state.currentId = null;
   state.appView = 'quote';
+  setAppViewBodyClass('quote');
   document.getElementById('app-root').classList.remove('is-visible');
   document.getElementById('hdr-user').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
@@ -612,6 +808,7 @@ async function initWorkspace() {
 
 function setNavActive(view) {
   const q = document.getElementById('nav-quote');
+  const b = document.getElementById('nav-budget');
   const u = document.getElementById('nav-users');
   const c = document.getElementById('nav-catalog');
   const paint = (btn, on) => {
@@ -621,16 +818,19 @@ function setNavActive(view) {
     btn.style.color = on ? 'var(--cyan)' : 'var(--muted)';
   };
   paint(q, view === 'quote');
+  paint(b, view === 'budget');
   paint(u, view === 'users');
   paint(c, view === 'catalog');
 }
 
-/** @param {'quote'|'users'|'catalog'} view @param {boolean} [silent] */
+/** @param {'quote'|'budget'|'users'|'catalog'} view @param {boolean} [silent] */
 function navigateApp(view, silent) {
   if ((view === 'users' || view === 'catalog') && state.user?.role !== 'ADMIN') {
     toast('Solo administradores', 'red');
     return;
   }
+  if (view === 'users' || view === 'catalog') flushPendingItemSaves();
+
   state.appView = view;
   const vUsers = document.getElementById('view-admin-users');
   const vCatalog = document.getElementById('view-admin-catalog');
@@ -643,6 +843,7 @@ function navigateApp(view, silent) {
     if (ws) ws.style.display = 'none';
     if (vUsers) vUsers.style.display = 'flex';
     if (vCatalog) vCatalog.style.display = 'none';
+    setAppViewBodyClass('quote');
     setNavActive('users');
     if (!silent && typeof loadUsersTable === 'function') loadUsersTable();
   } else if (view === 'catalog') {
@@ -651,12 +852,14 @@ function navigateApp(view, silent) {
     if (ws) ws.style.display = 'none';
     if (vUsers) vUsers.style.display = 'none';
     if (vCatalog) vCatalog.style.display = 'flex';
+    setAppViewBodyClass('quote');
     setNavActive('catalog');
     if (!silent && typeof loadCatalogTable === 'function') loadCatalogTable();
   } else {
     if (vUsers) vUsers.style.display = 'none';
     if (vCatalog) vCatalog.style.display = 'none';
-    setNavActive('quote');
+    setNavActive(view === 'budget' ? 'budget' : 'quote');
+    setAppViewBodyClass(view);
     render();
   }
 }
@@ -718,5 +921,11 @@ window.submitLogin = submitLogin;
 window.logoutUser = logoutUser;
 window.navigateApp = navigateApp;
 window.toggleSideNav = toggleSideNav;
+window.onItemFieldInput = onItemFieldInput;
+window.openCatalogPickModal = openCatalogPickModal;
+
+window.addEventListener('beforeunload', () => {
+  flushPendingItemSaves();
+});
 
 bootstrapAuth();
