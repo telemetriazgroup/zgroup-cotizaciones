@@ -1,18 +1,36 @@
 const express = require('express');
 const { pool } = require('../db');
+const { canViewProject, canEditProject } = require('../auth/projectAccess');
 
 const router = express.Router();
 
 function mapPlan(row) {
   return {
-    id:        row.id,
+    id: row.id,
     projectId: row.project_id,
-    name:      row.name,
-    size:      row.size,
-    type:      row.mime_type,
-    dataUrl:   row.data_url,
+    name: row.name,
+    size: row.size,
+    type: row.mime_type,
+    dataUrl: row.data_url,
   };
 }
+
+router.param('id', async (req, res, next, id) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM projects WHERE id=$1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Project not found' });
+    req.project = rows[0];
+    if (!canViewProject(req.user, req.project)) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+    if (!canEditProject(req.user, req.project)) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+    next();
+  } catch (e) {
+    next(e);
+  }
+});
 
 // ── POST /api/projects/:id/plans ──────────────────────────────────
 router.post('/:id/plans', async (req, res, next) => {
@@ -28,7 +46,9 @@ router.post('/:id/plans', async (req, res, next) => {
       [planId, id, name, size, type, dataUrl]
     );
     res.status(201).json(mapPlan(rows[0]));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── DELETE /api/projects/:id/plans/:planId ────────────────────────
@@ -41,7 +61,9 @@ router.delete('/:id/plans/:planId', async (req, res, next) => {
     );
     if (!rowCount) return res.status(404).json({ error: 'Plan not found' });
     res.json({ deleted: true, id: planId });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

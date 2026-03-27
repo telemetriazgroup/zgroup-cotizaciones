@@ -17,6 +17,19 @@
   --zebra-b:#252525;
 }
 body{background-color:var(--bg);color:var(--text);font-family:'Inter',sans-serif;margin:0}
+body.viewer-mode .viewer-hide{display:none!important}
+body.viewer-mode #workspace input.vi,
+body.viewer-mode #workspace select.vi,
+body.viewer-mode #workspace textarea.vi{pointer-events:none;opacity:.55}
+body.viewer-mode #workspace .mod-hdr{cursor:pointer;pointer-events:auto;opacity:1}
+body.viewer-mode #workspace .item-row button{visibility:hidden}
+body.viewer-mode #workspace #plans-list button{visibility:hidden}
+body.viewer-mode #workspace .ci{pointer-events:none;opacity:.55}
+body.viewer-mode header .viewer-hide{display:none!important}
+body.viewer-mode header #project-select{pointer-events:auto;opacity:1}
+body.viewer-mode header button[onclick*="setCurrency"]{pointer-events:auto;opacity:1}
+body.viewer-mode header #hdr-user button{pointer-events:auto;opacity:1}
+body.viewer-mode header .bgreen{pointer-events:auto;opacity:1}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--border-dim);border-radius:3px}

@@ -1,32 +1,59 @@
 const express = require('express');
 const { pool } = require('../db');
+const { canViewProject, canEditProject } = require('../auth/projectAccess');
 
 const router = express.Router();
 
 function mapItem(row) {
   return {
-    id:        row.id,
+    id: row.id,
     projectId: row.project_id,
     catalogId: row.catalog_id,
-    code:      row.code,
-    name:      row.name,
-    cat:       row.cat,
-    tipo:      row.tipo,
-    unit:      row.unit,
+    code: row.code,
+    name: row.name,
+    cat: row.cat,
+    tipo: row.tipo,
+    unit: row.unit,
     unitPrice: parseFloat(row.unit_price),
-    qty:       parseFloat(row.qty),
-    subtotal:  parseFloat(row.subtotal),
-    sortOrder: parseInt(row.sort_order) || 0,
+    qty: parseFloat(row.qty),
+    subtotal: parseFloat(row.subtotal),
+    sortOrder: parseInt(row.sort_order, 10) || 0,
   };
 }
+
+router.param('id', async (req, res, next, id) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM projects WHERE id=$1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Project not found' });
+    req.project = rows[0];
+    if (!canViewProject(req.user, req.project)) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+    if (!canEditProject(req.user, req.project)) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+    next();
+  } catch (e) {
+    next(e);
+  }
+});
 
 // ── POST /api/projects/:id/items ──────────────────────────────────
 router.post('/:id/items', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { id: itemId, catalogId = 'custom', code = 'CST',
-            name, cat = 'Personalizado', tipo = 'ACTIVO',
-            unit = 'und', unitPrice = 0, qty = 1, sortOrder = 0 } = req.body;
+    const {
+      id: itemId,
+      catalogId = 'custom',
+      code = 'CST',
+      name,
+      cat = 'Personalizado',
+      tipo = 'ACTIVO',
+      unit = 'und',
+      unitPrice = 0,
+      qty = 1,
+      sortOrder = 0,
+    } = req.body;
 
     if (!itemId || !name) return res.status(400).json({ error: 'itemId and name required' });
 
@@ -37,11 +64,12 @@ router.post('/:id/items', async (req, res, next) => {
          (id, project_id, catalog_id, code, name, cat, tipo, unit, unit_price, qty, subtotal, sort_order)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        RETURNING *`,
-      [itemId, id, catalogId, code, name, cat, tipo, unit,
-       unitPrice, qty, subtotal, sortOrder]
+      [itemId, id, catalogId, code, name, cat, tipo, unit, unitPrice, qty, subtotal, sortOrder]
     );
     res.status(201).json(mapItem(rows[0]));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── PUT /api/projects/:id/items/:itemId ───────────────────────────
@@ -61,10 +89,12 @@ router.put('/:id/items/:itemId', async (req, res, next) => {
     );
     if (!rows.length) return res.status(404).json({ error: 'Item not found' });
     res.json(mapItem(rows[0]));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
-// ── DELETE /api/projects/:id/items/:itemId ────────────────────────
+// ── DELETE /api/projects/:id/items/:itemId (antes que /:id/items) ─
 router.delete('/:id/items/:itemId', async (req, res, next) => {
   try {
     const { id, itemId } = req.params;
@@ -74,16 +104,19 @@ router.delete('/:id/items/:itemId', async (req, res, next) => {
     );
     if (!rowCount) return res.status(404).json({ error: 'Item not found' });
     res.json({ deleted: true, id: itemId });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
-// ── DELETE /api/projects/:id/items  (clear all) ───────────────────
 router.delete('/:id/items', async (req, res, next) => {
   try {
     const { id } = req.params;
     await pool.query('DELETE FROM project_items WHERE project_id=$1', [id]);
     res.json({ deleted: true, projectId: id });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

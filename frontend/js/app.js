@@ -1,10 +1,19 @@
 /* ── ZGROUP App — State + Orchestration ── */
 
 const state = {
+  user:      null,
   projects:  [],
   currentId: null,
   catFilter: 'Todos',
 };
+
+function isViewer() {
+  return !!(state.user && state.user.role === 'VIEWER');
+}
+
+function applyViewerMode() {
+  document.body.classList.toggle('viewer-mode', isViewer());
+}
 
 function curP() { return state.projects.find(p => p.id === state.currentId); }
 
@@ -53,7 +62,10 @@ function renderCatalog() {
         <div class="mono" style="font-size:9px;color:var(--muted)">/${item.unit}</div>
       </div>
     </div>`;
-    d.onclick = () => addItem(item);
+    d.onclick = () => {
+      if (isViewer()) { toast('Solo lectura (VIEWER)', 'amber'); return; }
+      addItem(item);
+    };
     list.appendChild(d);
   });
 }
@@ -181,6 +193,7 @@ async function selectProject(id) {
 }
 
 async function saveAndCompute() {
+  if (isViewer()) return;
   const p = curP();
   if (!p) return;
 
@@ -204,6 +217,7 @@ async function saveAndCompute() {
 }
 
 async function addItem(catItem) {
+  if (isViewer()) return;
   const p = curP();
   if (!p) { toast('⚠ Selecciona un proyecto', 'red'); return; }
   const qty   = parseFloat(document.getElementById('add-qty').value) || 1;
@@ -243,6 +257,7 @@ async function addItem(catItem) {
 }
 
 async function updateItem(id, field, val) {
+  if (isViewer()) return;
   const p  = curP();
   const it = p?.items.find(i => i.id === id);
   if (!it) return;
@@ -253,6 +268,7 @@ async function updateItem(id, field, val) {
 }
 
 async function removeItem(id) {
+  if (isViewer()) return;
   const p = curP();
   if (!p) return;
   p.items = p.items.filter(i => i.id !== id);
@@ -261,6 +277,7 @@ async function removeItem(id) {
 }
 
 async function clearAllItems() {
+  if (isViewer()) return;
   const p = curP();
   if (!p || !p.items.length) return;
   if (!confirm('¿Limpiar todas las partidas?')) return;
@@ -276,6 +293,7 @@ function handleDrop(e)      { e.preventDefault(); handleDragLeave(); processFile
 function handleFiles(e)     { processFiles(e.target.files); }
 
 function processFiles(files) {
+  if (isViewer()) return;
   const p = curP();
   if (!p) { toast('⚠ Selecciona un proyecto', 'red'); return; }
   Array.from(files).forEach(f => {
@@ -292,6 +310,7 @@ function processFiles(files) {
 }
 
 async function removePlan(id) {
+  if (isViewer()) return;
   const p = curP();
   if (!p) return;
   p.plans = p.plans.filter(pl => pl.id !== id);
@@ -301,6 +320,7 @@ async function removePlan(id) {
 
 /* ── Modals ── */
 function openNewProjectModal() {
+  if (isViewer()) { toast('Solo lectura', 'amber'); return; }
   document.getElementById('modal-title').textContent = 'NUEVO PROYECTO';
   document.getElementById('modal-body').innerHTML = `
     <div style="display:flex;flex-direction:column;gap:14px">
@@ -320,6 +340,7 @@ function openNewProjectModal() {
 }
 
 async function confirmNewProject() {
+  if (isViewer()) return;
   const name = document.getElementById('np-name')?.value.trim();
   const odoo = document.getElementById('np-odoo')?.value.trim();
   if (!name) { if (document.getElementById('np-name')) document.getElementById('np-name').style.borderColor = 'var(--red)'; return; }
@@ -340,6 +361,7 @@ async function confirmNewProject() {
 }
 
 async function deleteCurrentProject() {
+  if (isViewer()) return;
   const p = curP();
   if (!p) return;
   if (!confirm(`¿Eliminar "${p.name}"? Esta acción no se puede deshacer.`)) return;
@@ -354,6 +376,7 @@ async function deleteCurrentProject() {
 }
 
 function openCustomItemModal() {
+  if (isViewer()) return;
   const p = curP();
   if (!p) { toast('⚠ Selecciona un proyecto', 'red'); return; }
   document.getElementById('modal-title').textContent = 'PIEZA PERSONALIZADA';
@@ -379,6 +402,7 @@ function openCustomItemModal() {
 }
 
 async function submitCustomItem() {
+  if (isViewer()) return;
   const name = document.getElementById('ci-name')?.value.trim();
   if (!name) { if (document.getElementById('ci-name')) document.getElementById('ci-name').style.borderColor = 'var(--red)'; return; }
   const p     = curP();
@@ -471,10 +495,53 @@ document.addEventListener('keydown', e => {
   }
 });
 
-/* ── Init ── */
-async function init() {
+/* ── Auth + Init (Módulo 0) ── */
+function afterLogin() {
+  document.getElementById('login-screen').style.display = 'none';
+  const hu = document.getElementById('hdr-user');
+  hu.style.display = 'flex';
+  document.getElementById('hdr-email').textContent = state.user.email;
+  document.getElementById('hdr-email').title = state.user.email;
+  document.getElementById('hdr-role').textContent = state.user.role;
+  applyViewerMode();
+  window.location.hash = '#/';
+}
+
+async function submitLogin(ev) {
+  ev.preventDefault();
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  try {
+    loadingStart();
+    const data = await API.login(email, pass);
+    state.user = data.user;
+    afterLogin();
+    await initWorkspace();
+  } catch (e) {
+    errEl.textContent = e.message || 'Credenciales incorrectas';
+    errEl.style.display = 'block';
+  } finally {
+    loadingDone();
+  }
+}
+
+async function logoutUser() {
+  await API.logout();
+  state.user = null;
+  state.projects = [];
+  state.currentId = null;
+  document.getElementById('hdr-user').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-pass').value = '';
+  document.body.classList.remove('viewer-mode');
+  window.location.hash = '#/login';
+}
+
+async function initWorkspace() {
   document.getElementById('hdr-date').textContent =
-    new Date().toLocaleDateString('es-PE', { day:'2-digit', month:'2-digit', year:'numeric' });
+    new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   renderCatFilters();
   renderCatalog();
@@ -492,9 +559,46 @@ async function init() {
       render();
     }
   } catch (e) {
-    toast('No se pudo conectar al backend. ¿Está corriendo?', 'red');
+    toast('No se pudo cargar datos: ' + e.message, 'red');
     render();
-  } finally { loadingDone(); }
+  } finally {
+    loadingDone();
+  }
 }
 
-init();
+async function bootstrapAuth() {
+  let logged = false;
+  try {
+    if (API.getAccessToken()) {
+      const { user } = await API.me();
+      state.user = user;
+      logged = true;
+    }
+  } catch (_) {
+    /* token inválido o expirado */
+  }
+  if (!logged) {
+    try {
+      const ok = await API.tryRefresh();
+      if (ok) {
+        const { user } = await API.me();
+        state.user = user;
+        logged = true;
+      }
+    } catch (_) {
+      /* sin sesión */
+    }
+  }
+  if (logged) {
+    afterLogin();
+    await initWorkspace();
+  } else {
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('hdr-user').style.display = 'none';
+  }
+}
+
+window.submitLogin = submitLogin;
+window.logoutUser = logoutUser;
+
+bootstrapAuth();

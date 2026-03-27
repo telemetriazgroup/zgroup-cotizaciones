@@ -17,6 +17,13 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: zgroup-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
   api:
     build:
       context: ./backend
@@ -30,11 +37,16 @@ services:
       DB_USER: ${DB_USER:-zgroup}
       DB_PASSWORD: ${DB_PASSWORD:-zgroup123}
       DB_NAME: ${DB_NAME:-zgroup_cotizaciones}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-access}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh}
     ports:
       - "${API_PORT:-3001}:3001"
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   web:
     build:

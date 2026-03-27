@@ -1,100 +1,147 @@
 const express = require('express');
 const { pool } = require('../db');
+const {
+  canViewAllProjects,
+  canViewProject,
+  canCreateProject,
+  canEditProject,
+  canDeleteProject,
+} = require('../auth/projectAccess');
 
 const router = express.Router();
 
-// ── Helper: map DB row → camelCase project ────────────────────────
 function mapProject(row) {
   return {
-    id:          row.id,
-    name:        row.name,
-    odooNumber:  row.odoo_number,
-    createdAt:   row.created_at,
-    adjType:     row.adj_type,
-    adjPct:      parseFloat(row.adj_pct),
-    cpPlazo:     parseInt(row.cp_plazo),
-    cpVida:      parseInt(row.cp_vida),
-    cpOp:        parseFloat(row.cp_op),
-    cpRoa:       parseFloat(row.cp_roa),
-    cpMerma:     parseFloat(row.cp_merma),
-    lpVida:      parseInt(row.lp_vida),
-    lpN:         parseInt(row.lp_n),
-    lpNContrato: parseInt(row.lp_n_contrato),
-    lpTeaBanco:  parseFloat(row.lp_tea_banco),
-    lpTeaCot:    parseFloat(row.lp_tea_cot),
-    lpOp:        parseFloat(row.lp_op),
-    lpForm:      parseFloat(row.lp_form),
-    lpPostPct:   parseFloat(row.lp_post_pct),
-    lpFondoRep:  parseFloat(row.lp_fondo_rep),
-    estOp:       parseInt(row.est_op),
-    estSb:       parseInt(row.est_sb),
-    estSeguro:   parseFloat(row.est_seguro),
-    estSbPct:    parseFloat(row.est_sb_pct),
-    cmpPeriod:   parseInt(row.cmp_period),
+    id: row.id,
+    name: row.name,
+    odooNumber: row.odoo_number,
+    createdAt: row.created_at,
+    ownerUserId: row.owner_user_id,
+    adjType: row.adj_type,
+    adjPct: parseFloat(row.adj_pct),
+    cpPlazo: parseInt(row.cp_plazo, 10),
+    cpVida: parseInt(row.cp_vida, 10),
+    cpOp: parseFloat(row.cp_op),
+    cpRoa: parseFloat(row.cp_roa),
+    cpMerma: parseFloat(row.cp_merma),
+    lpVida: parseInt(row.lp_vida, 10),
+    lpN: parseInt(row.lp_n, 10),
+    lpNContrato: parseInt(row.lp_n_contrato, 10),
+    lpTeaBanco: parseFloat(row.lp_tea_banco),
+    lpTeaCot: parseFloat(row.lp_tea_cot),
+    lpOp: parseFloat(row.lp_op),
+    lpForm: parseFloat(row.lp_form),
+    lpPostPct: parseFloat(row.lp_post_pct),
+    lpFondoRep: parseFloat(row.lp_fondo_rep),
+    estOp: parseInt(row.est_op, 10),
+    estSb: parseInt(row.est_sb, 10),
+    estSeguro: parseFloat(row.est_seguro),
+    estSbPct: parseFloat(row.est_sb_pct),
+    cmpPeriod: parseInt(row.cmp_period, 10),
   };
 }
 
 function mapItem(row) {
   return {
-    id:        row.id,
+    id: row.id,
     projectId: row.project_id,
     catalogId: row.catalog_id,
-    code:      row.code,
-    name:      row.name,
-    cat:       row.cat,
-    tipo:      row.tipo,
-    unit:      row.unit,
+    code: row.code,
+    name: row.name,
+    cat: row.cat,
+    tipo: row.tipo,
+    unit: row.unit,
     unitPrice: parseFloat(row.unit_price),
-    qty:       parseFloat(row.qty),
-    subtotal:  parseFloat(row.subtotal),
+    qty: parseFloat(row.qty),
+    subtotal: parseFloat(row.subtotal),
     sortOrder: row.sort_order,
   };
 }
 
 function mapPlan(row) {
   return {
-    id:        row.id,
+    id: row.id,
     projectId: row.project_id,
-    name:      row.name,
-    size:      row.size,
-    type:      row.mime_type,
-    dataUrl:   row.data_url,
+    name: row.name,
+    size: row.size,
+    type: row.mime_type,
+    dataUrl: row.data_url,
   };
 }
+
+router.param('id', async (req, res, next, id) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM projects WHERE id=$1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Project not found' });
+    req.project = rows[0];
+    if (!canViewProject(req.user, req.project)) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+    if (req.method === 'PUT' || req.method === 'PATCH') {
+      if (!canEditProject(req.user, req.project)) {
+        return res.status(403).json({ error: 'Acceso denegado' });
+      }
+    }
+    if (req.method === 'DELETE') {
+      if (!canDeleteProject(req.user, req.project)) {
+        return res.status(403).json({ error: 'Acceso denegado' });
+      }
+    }
+    next();
+  } catch (e) {
+    next(e);
+  }
+});
 
 // ── GET /api/projects ─────────────────────────────────────────────
 router.get('/', async (req, res, next) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT * FROM projects ORDER BY created_at ASC'
-    );
+    let rows;
+    if (canViewAllProjects(req.user)) {
+      const r = await pool.query('SELECT * FROM projects ORDER BY created_at ASC');
+      rows = r.rows;
+    } else {
+      const r = await pool.query(
+        `SELECT * FROM projects WHERE owner_user_id = $1 ORDER BY created_at ASC`,
+        [req.user.sub]
+      );
+      rows = r.rows;
+    }
     res.json(rows.map(mapProject));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── POST /api/projects ────────────────────────────────────────────
 router.post('/', async (req, res, next) => {
   try {
+    if (!canCreateProject(req.user)) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
     const { id, name, odooNumber = '' } = req.body;
     if (!id || !name) return res.status(400).json({ error: 'id and name required' });
 
+    const ownerId = req.user.role === 'ADMIN' && req.body.ownerUserId
+      ? req.body.ownerUserId
+      : req.user.sub;
+
     const { rows } = await pool.query(
-      `INSERT INTO projects (id, name, odoo_number)
-       VALUES ($1, $2, $3)
+      `INSERT INTO projects (id, name, odoo_number, owner_user_id)
+       VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [id, name, odooNumber]
+      [id, name, odooNumber, ownerId]
     );
     res.status(201).json(mapProject(rows[0]));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── GET /api/projects/:id  (full project with items & plans) ──────
 router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    const pRes = await pool.query('SELECT * FROM projects WHERE id=$1', [id]);
-    if (!pRes.rows.length) return res.status(404).json({ error: 'Project not found' });
 
     const iRes = await pool.query(
       'SELECT * FROM project_items WHERE project_id=$1 ORDER BY sort_order, created_at',
@@ -105,12 +152,14 @@ router.get('/:id', async (req, res, next) => {
       [id]
     );
 
-    const project = mapProject(pRes.rows[0]);
+    const project = mapProject(req.project);
     project.items = iRes.rows.map(mapItem);
     project.plans = plRes.rows.map(mapPlan);
 
     res.json(project);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── PUT /api/projects/:id  (update financial settings) ───────────
@@ -176,7 +225,9 @@ router.put('/:id', async (req, res, next) => {
 
     if (!rows.length) return res.status(404).json({ error: 'Project not found' });
     res.json(mapProject(rows[0]));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── DELETE /api/projects/:id ──────────────────────────────────────
@@ -186,7 +237,9 @@ router.delete('/:id', async (req, res, next) => {
     const { rowCount } = await pool.query('DELETE FROM projects WHERE id=$1', [id]);
     if (!rowCount) return res.status(404).json({ error: 'Project not found' });
     res.json({ deleted: true, id });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

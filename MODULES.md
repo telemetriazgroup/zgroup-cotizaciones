@@ -28,10 +28,10 @@
 - Múltiples tabs → todas deben sincronizar el estado de auth (broadcast channel o localStorage event)
 
 ### Criterios de aceptación
-- [ ] Login exitoso redirige al workspace
-- [ ] Login fallido muestra error "Credenciales incorrectas"
-- [ ] Access token expira → siguiente request se renueva automáticamente (invisible al usuario)
-- [ ] Logout elimina cookies y redirige a `/login`
+- [x] Login exitoso redirige al workspace
+- [x] Login fallido muestra error "Credenciales incorrectas"
+- [x] Access token expira → siguiente request se renueva automáticamente (invisible al usuario)
+- [x] Logout elimina cookies y redirige a `/login` (hash `#/login` + pantalla de acceso)
 
 ---
 

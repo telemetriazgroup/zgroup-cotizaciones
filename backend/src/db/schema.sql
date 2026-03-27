@@ -1,10 +1,34 @@
 -- ZGROUP Cotizaciones Técnicas — PostgreSQL Schema
 
+-- Módulo 0 — Usuarios y sesiones
+CREATE TABLE IF NOT EXISTS users (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email          VARCHAR(255) NOT NULL UNIQUE,
+  password_hash  VARCHAR(255) NOT NULL,
+  role           VARCHAR(20)  NOT NULL DEFAULT 'COMERCIAL'
+    CHECK (role IN ('ADMIN', 'COMERCIAL', 'VIEWER')),
+  created_at     TIMESTAMPTZ  DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash   VARCHAR(64) NOT NULL,
+  expires_at   TIMESTAMPTZ NOT NULL,
+  revoked_at   TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user   ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash    ON refresh_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at);
+
 CREATE TABLE IF NOT EXISTS projects (
   id            VARCHAR(32)  PRIMARY KEY,
   name          VARCHAR(255) NOT NULL,
   odoo_number   VARCHAR(100) DEFAULT '',
   created_at    TIMESTAMPTZ  DEFAULT NOW(),
+  owner_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
 
   -- Módulo 1: Venta Directa
   adj_type      VARCHAR(20)  DEFAULT 'margin',
@@ -66,3 +90,9 @@ CREATE TABLE IF NOT EXISTS project_plans (
 
 CREATE INDEX IF NOT EXISTS idx_items_project   ON project_items(project_id);
 CREATE INDEX IF NOT EXISTS idx_plans_project   ON project_plans(project_id);
+
+-- Columna owner: en BD nuevas ya viene en CREATE TABLE projects; en BD antiguas hay que añadirla
+-- antes de cualquier índice sobre owner_user_id.
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_user_id UUID REFERENCES users(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_projects_owner ON projects(owner_user_id);
